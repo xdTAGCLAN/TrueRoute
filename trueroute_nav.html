@@ -9,7 +9,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="TrueRoute">
 <meta name="theme-color" content="#0a0a0f">
-<link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -80,59 +79,26 @@
   #map-wrap { flex: 1; position: relative; background: #0d0d18; }
   #map { width: 100%; height: 100%; background: #0d0d18; position: relative; z-index: 1; }
 
-  /* CRITICAL FIX: Canvas needs to be ABOVE the map but allow clicks to pass through */
   #viz-canvas {
-    position: absolute; 
-    top: 0; 
-    left: 0; 
-    width: 100%; 
-    height: 100%;
-    pointer-events: none; 
-    z-index: 400;
-    display: block;
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 400; display: block;
   }
 
   #map-overlay {
-    position: absolute; 
-    top: 12px; 
-    left: 50%; 
-    transform: translateX(-50%);
-    background: rgba(10,10,15,0.95); 
-    border: 1px solid var(--accent3); 
-    color: var(--accent3);
-    font-family: 'Space Mono', monospace; 
-    font-size: 11px; 
-    letter-spacing: 1px;
-    font-weight: bold;
-    padding: 8px 18px; 
-    border-radius: 30px; 
-    pointer-events: none; 
-    z-index: 500;
-    backdrop-filter: blur(8px);
-    transition: opacity 0.3s;
-    white-space: nowrap;
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(10,10,15,0.95); border: 1px solid var(--accent3); color: var(--accent3);
+    font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1px;
+    font-weight: bold; padding: 8px 18px; border-radius: 30px; pointer-events: none; z-index: 500;
+    backdrop-filter: blur(8px); transition: opacity 0.3s; white-space: nowrap;
     box-shadow: 0 0 15px rgba(68,136,255,0.3);
   }
 
   #viz-legend {
-    position: absolute; 
-    bottom: 24px; 
-    right: 12px;
-    background: rgba(10,10,15,0.95); 
-    border: 1px solid var(--border); 
-    border-radius: 8px;
-    padding: 12px 16px; 
-    font-family: 'Space Mono', monospace; 
-    font-size: 10px; 
-    color: var(--muted);
-    z-index: 500; 
-    display: none; 
-    flex-direction: column; 
-    gap: 10px; 
-    backdrop-filter: blur(8px);
-    letter-spacing: 0.5px;
-    pointer-events: none;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    position: absolute; bottom: 24px; right: 12px;
+    background: rgba(10,10,15,0.95); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 16px; font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted);
+    z-index: 500; display: none; flex-direction: column; gap: 10px; backdrop-filter: blur(8px);
+    letter-spacing: 0.5px; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
   }
   #viz-legend.visible { display: flex; }
   .leg { display: flex; align-items: center; gap: 12px; }
@@ -168,103 +134,143 @@
     z-index: 600; display: none; flex-direction: column;
     backdrop-filter: blur(12px);
     padding-bottom: max(4px, env(safe-area-inset-bottom));
-    max-height: 45dvh;
-    overflow: hidden;
+    max-height: 45dvh; overflow: hidden;
   }
   #nav-hud.visible { display: flex; }
-  #nav-hud-top {
-    display: flex; align-items: center; gap: 10px; padding: 8px 14px;
-    border-bottom: 1px solid var(--border);
-  }
-  #nav-turn-arrow {
-    font-size: 28px; line-height: 1; flex-shrink: 0; width: 36px; text-align: center;
-  }
-  #nav-turn-text {
-    flex: 1; font-family: 'Syne', sans-serif; font-weight: 700;
-    font-size: 14px; color: var(--text); line-height: 1.2;
-  }
-  #nav-turn-dist {
-    font-family: 'Space Mono', monospace; font-size: 12px;
-    color: var(--accent3); text-align: right; flex-shrink: 0;
-  }
-  #nav-hud-bottom {
-    display: flex; justify-content: space-around; padding: 6px 14px 4px; gap: 4px;
-    flex-shrink: 0;
-  }
+  #nav-hud-top { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+  #nav-turn-arrow { font-size: 28px; line-height: 1; flex-shrink: 0; width: 36px; text-align: center; }
+  #nav-turn-text { flex: 1; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--text); line-height: 1.2; }
+  #nav-turn-dist { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--accent3); text-align: right; flex-shrink: 0; }
+  #nav-hud-bottom { display: flex; justify-content: space-around; padding: 6px 14px 4px; gap: 4px; flex-shrink: 0; }
   .nav-stat { display: flex; flex-direction: column; align-items: center; gap: 1px; }
   .nav-stat-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--accent); }
   .nav-stat-lbl { font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
 
-  /* GPS dot on map */
-  .gps-dot-outer {
-    width: 22px; height: 22px; border-radius: 50%;
-    background: rgba(68,136,255,0.25); border: 2px solid var(--accent3);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .gps-dot-inner {
-    width: 10px; height: 10px; border-radius: 50%;
-    background: var(--accent3); box-shadow: 0 0 8px var(--accent3);
-  }
+  .gps-dot-outer { width: 22px; height: 22px; border-radius: 50%; background: rgba(68,136,255,0.25); border: 2px solid var(--accent3); display: flex; align-items: center; justify-content: center; }
+  .gps-dot-inner { width: 10px; height: 10px; border-radius: 50%; background: var(--accent3); box-shadow: 0 0 8px var(--accent3); }
 
-  /* Rerouting banner */
   #reroute-banner {
     position: absolute; top: 55px; left: 50%; transform: translateX(-50%);
     background: rgba(255,153,0,0.95); color: #000; font-family: 'Syne', sans-serif;
     font-weight: 700; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
-    padding: 8px 20px; border-radius: 20px; z-index: 600;
-    display: none; white-space: nowrap;
+    padding: 8px 20px; border-radius: 20px; z-index: 600; display: none; white-space: nowrap;
   }
 
-  /* Mobile-only elements — hidden on desktop by default */
+  /* ── NEW: Waypoint styles ─────────────────────────── */
+  .waypoint-row { display: flex; gap: 6px; align-items: center; }
+  .waypoint-input { flex: 1; }
+  .wp-remove-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 14px; width: 32px; height: 32px; border-radius: 4px; cursor: pointer; flex-shrink: 0; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+  .wp-remove-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  #add-waypoint-btn { background: transparent; border: 1px dashed var(--border); color: var(--muted); font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 8px; border-radius: 4px; cursor: pointer; transition: all 0.2s; width: 100%; }
+  #add-waypoint-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── NEW: Avoid toggles ──────────────────────────── */
+  .avoid-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .avoid-chip { background: var(--bg); border: 1px solid var(--border); color: var(--muted); font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 6px 10px; border-radius: 20px; cursor: pointer; transition: all 0.2s; }
+  .avoid-chip.active { border-color: var(--accent2); color: var(--accent2); background: rgba(255,51,102,0.08); }
+  .avoid-chip:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* ── NEW: Swap button ────────────────────────────── */
+  #swap-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: 'Space Mono', monospace; font-size: 10px; padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: all 0.2s; letter-spacing: 1px; }
+  #swap-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── NEW: Compass bearing widget ────────────────── */
+  #compass-wrap {
+    position: absolute; top: 60px; right: 12px; z-index: 500;
+    width: 54px; height: 54px; display: none;
+  }
+  #compass-wrap.visible { display: block; }
+  #compass-svg { width: 54px; height: 54px; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6)); }
+
+  /* ── NEW: Map layer controls ─────────────────────── */
+  #map-controls {
+    position: absolute; top: 12px; right: 12px; z-index: 500;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .map-ctrl-btn {
+    background: rgba(10,10,15,0.95); border: 1px solid var(--border); color: var(--muted);
+    font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 1px;
+    text-transform: uppercase; padding: 7px 10px; border-radius: 4px; cursor: pointer;
+    transition: all 0.2s; backdrop-filter: blur(8px); white-space: nowrap;
+  }
+  .map-ctrl-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+  .map-ctrl-btn.active { border-color: var(--accent3); color: var(--accent3); background: rgba(68,136,255,0.1); }
+
+  /* ── NEW: Elevation profile ──────────────────────── */
+  #elev-panel {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 500;
+    background: rgba(10,10,15,0.97); border-top: 1px solid var(--border);
+    backdrop-filter: blur(12px); display: none; flex-direction: column;
+    padding: 10px 14px 12px;
+  }
+  #elev-panel.visible { display: flex; }
+  #elev-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  #elev-title { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  #elev-stats { font-size: 9px; color: var(--accent3); letter-spacing: 1px; }
+  #elev-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; }
+  #elev-close:hover { color: var(--accent2); }
+  #elev-canvas { width: 100%; height: 70px; display: block; }
+
+  /* ── NEW: Replay scrubber ────────────────────────── */
+  #replay-panel {
+    background: var(--bg); border: 1px solid var(--accent3); border-radius: 4px;
+    padding: 12px; display: none; flex-direction: column; gap: 8px;
+  }
+  #replay-panel.visible { display: flex; }
+  #replay-header { display: flex; justify-content: space-between; align-items: center; }
+  #replay-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent3); }
+  #replay-node-count { font-size: 9px; color: var(--muted); }
+  .replay-controls { display: flex; gap: 6px; align-items: center; }
+  .replay-btn { background: var(--bg); border: 1px solid var(--border); color: var(--muted); font-family: 'Space Mono', monospace; font-size: 10px; padding: 5px 10px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+  .replay-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+  .replay-btn.active { border-color: var(--accent3); color: var(--accent3); background: rgba(68,136,255,0.1); }
+  #replay-scrubber { width: 100%; accent-color: var(--accent3); }
+
+  /* ── NEW: Recent routes ──────────────────────────── */
+  #recent-routes-list { display: flex; flex-direction: column; gap: 6px; }
+  .recent-route-item { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+  .recent-route-item:hover { border-color: var(--accent3); }
+  .recent-route-info { flex: 1; }
+  .recent-route-name { font-size: 10px; color: var(--text); margin-bottom: 2px; }
+  .recent-route-meta { font-size: 9px; color: var(--muted); }
+  .recent-route-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 6px; }
+  .recent-route-del:hover { color: var(--accent2); }
+  #no-recent { font-size: 9px; color: var(--muted); font-style: italic; }
+
+  /* ── NEW: Share toast ────────────────────────────── */
+  #share-toast {
+    position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,255,136,0.15); border: 1px solid var(--accent); color: var(--accent);
+    font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 1px;
+    padding: 10px 18px; border-radius: 20px; z-index: 700; display: none;
+    white-space: nowrap; backdrop-filter: blur(8px);
+  }
+
+  /* Mobile-only elements */
   #gps-btn, #nav-btn { display: none; }
 
   /* Mobile layout */
   @media (max-width: 700px) {
     body { flex-direction: column; height: 100dvh; }
-    #panel {
-      width: 100% !important; min-width: 100% !important;
-      border-right: none; border-bottom: 1px solid var(--border);
-      max-height: 45vh; overflow-y: auto;
-      transition: max-height 0.35s ease, opacity 0.3s ease;
-    }
-    /* Collapse panel during active navigation */
-    body.nav-active #panel {
-      max-height: 0 !important;
-      overflow: hidden;
-      opacity: 0;
-      border-bottom: none;
-      pointer-events: none;
-    }
+    #panel { width: 100% !important; min-width: 100% !important; border-right: none; border-bottom: 1px solid var(--border); max-height: 45vh; overflow-y: auto; transition: max-height 0.35s ease, opacity 0.3s ease; }
+    body.nav-active #panel { max-height: 0 !important; overflow: hidden; opacity: 0; border-bottom: none; pointer-events: none; }
     #map-wrap { flex: 1; min-height: 0; overflow: hidden; position: relative; }
     :root { --panel-w: 100%; }
-    /* Show GPS button always on mobile; nav button only once a route is ready */
     #gps-btn { display: block; }
     #nav-btn.nav-btn-ready { display: block; }
-
-    /* When nav-hud is moved to body level it becomes a flex child — give it a fixed height band */
-    body > #nav-hud {
-      position: static;
-      flex-shrink: 0;
-      border-top: 2px solid var(--accent3);
-    }
-    /* While it's still inside map-wrap (pre-nav or desktop), keep it absolute */
-    #map-wrap #nav-hud {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-    }
+    body > #nav-hud { position: static; flex-shrink: 0; border-top: 2px solid var(--accent3); }
+    #map-wrap #nav-hud { position: absolute; bottom: 0; left: 0; right: 0; }
+    #map-controls { top: auto; bottom: 80px; right: 8px; }
+    #compass-wrap { top: 8px; right: 8px; }
   }
 
-  /* Leaflet overrides - keep map visible but canvas goes above */
+  /* Leaflet overrides */
   .leaflet-container { background: #0d0d18 !important; }
   .leaflet-tile-pane { filter: saturate(0.7) brightness(0.85) contrast(0.95); }
   .leaflet-control-zoom a { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
   .leaflet-control-attribution { background: rgba(10,10,15,0.8) !important; color: var(--muted) !important; font-size: 8px !important; }
   .leaflet-control-attribution a { color: var(--muted) !important; }
-  
-  /* Make sure tile layer doesn't cover canvas */
-  .leaflet-pane, .leaflet-top, .leaflet-bottom, .leaflet-control {
-    z-index: 200;
-  }
+  .leaflet-pane, .leaflet-top, .leaflet-bottom, .leaflet-control { z-index: 200; }
 </style>
 </head>
 <body>
@@ -272,11 +278,12 @@
 <div id="panel">
   <div id="panel-header">
     <div class="logo">True<span>Route</span></div>
-    <div class="tagline">OSM Exhaustive Pathfinder · Dijkstra</div>
+    <div class="tagline" id="algo-tagline">OSM Exhaustive Pathfinder · Dijkstra</div>
   </div>
 
   <div id="panel-body">
 
+    <!-- Input mode -->
     <div class="field-group">
       <div class="field-label">Set points by</div>
       <div class="mode-row">
@@ -286,9 +293,7 @@
     </div>
 
     <div id="click-instructions" class="field-group">
-      <div class="field-hint">
-        <b style="color:var(--accent)">Click on the map</b> to set origin (green), then click again for destination (red).
-      </div>
+      <div class="field-hint"><b style="color:var(--accent)">Click on the map</b> to set origin (green), then click again for destination (red).</div>
     </div>
 
     <div id="text-inputs" class="field-group" style="display:none; gap:12px;">
@@ -296,55 +301,91 @@
         <div class="field-label"><span class="dot dot-a"></span> Origin</div>
         <input class="field-input" id="origin-input" type="text" placeholder="e.g. Dam Square, Amsterdam"/>
       </div>
+      <!-- Waypoints inserted here dynamically -->
+      <div id="waypoints-container"></div>
       <div class="field-group">
         <div class="field-label"><span class="dot dot-b"></span> Destination</div>
         <input class="field-input" id="dest-input" type="text" placeholder="e.g. Vondelpark, Amsterdam"/>
       </div>
-      <button class="mode-btn" style="flex:none;width:100%;padding:10px;" onclick="geocodeInputs()">📍 Geocode</button>
+      <div style="display:flex; gap:6px;">
+        <button class="mode-btn" style="flex:none;flex:1;padding:10px;" onclick="geocodeInputs()">📍 Geocode</button>
+        <button id="swap-btn" onclick="swapPoints()" title="Swap A ↔ B">⇅ Swap</button>
+      </div>
+      <button id="add-waypoint-btn" onclick="addWaypoint()">＋ Add waypoint</button>
+    </div>
+
+    <!-- Click mode swap button -->
+    <div id="click-swap-row" style="display:none;">
+      <button id="swap-btn-click" onclick="swapPoints()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:8px 12px;border-radius:4px;cursor:pointer;transition:all 0.2s;width:100%;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">⇅ Swap A ↔ B</button>
     </div>
 
     <div class="field-group" id="points-display" style="display:none;">
       <div class="field-label">Selected points</div>
       <div id="point-a-text" class="field-hint" style="color:var(--accent)"></div>
+      <div id="waypoints-display"></div>
       <div id="point-b-text" class="field-hint" style="color:var(--accent2)"></div>
     </div>
 
     <hr class="divider"/>
 
+    <!-- Transport mode -->
     <div class="field-group">
       <div class="field-label">Transport Mode</div>
       <div class="mode-row" id="transport-row">
-        <button class="mode-btn active" id="tm-car"     onclick="setTransport('car')">🚗 Car</button>
-        <button class="mode-btn"        id="tm-bike"    onclick="setTransport('bike')">🚲 Bike</button>
-        <button class="mode-btn"        id="tm-walk"    onclick="setTransport('walk')">🚶 Walk</button>
+        <button class="mode-btn active" id="tm-car"  onclick="setTransport('car')">🚗 Car</button>
+        <button class="mode-btn" id="tm-bike"        onclick="setTransport('bike')">🚲 Bike</button>
+        <button class="mode-btn" id="tm-walk"        onclick="setTransport('walk')">🚶 Walk</button>
+      </div>
+    </div>
+
+    <!-- Avoid options -->
+    <div class="field-group" id="avoid-section">
+      <div class="field-label">Avoid</div>
+      <div class="avoid-row">
+        <button class="avoid-chip" id="avoid-highways" onclick="toggleAvoid('highways')">Highways</button>
+        <button class="avoid-chip" id="avoid-tolls"    onclick="toggleAvoid('tolls')">Tolls</button>
+        <button class="avoid-chip" id="avoid-ferries"  onclick="toggleAvoid('ferries')">Ferries</button>
       </div>
     </div>
 
     <hr class="divider"/>
 
+    <!-- Algorithm -->
+    <div class="field-group">
+      <div class="field-label">Algorithm</div>
+      <div class="mode-row">
+        <button class="mode-btn active" id="algo-dijkstra" onclick="setAlgo('dijkstra')">Dijkstra</button>
+        <button class="mode-btn" id="algo-astar"           onclick="setAlgo('astar')">A★ (faster)</button>
+      </div>
+      <div class="field-hint" id="algo-hint">Downloads full OSM graph, runs <b style="color:var(--text)">Dijkstra</b> exhaustively — no shortcuts.</div>
+    </div>
+
+    <hr class="divider"/>
+
+    <!-- Bounding box -->
     <div class="field-group">
       <div class="field-label">Bounding Box <span id="bbox-size-label" style="color:var(--accent3);margin-left:4px">Auto</span></div>
       <div class="mode-row">
-        <button class="mode-btn active" id="bbox-auto-btn" onclick="setBboxMode('auto')">Auto</button>
-        <button class="mode-btn" id="bbox-custom-btn" onclick="setBboxMode('custom')">Custom</button>
-        <button class="mode-btn" id="bbox-none-btn"   onclick="setBboxMode('none')">Unlimited</button>
+        <button class="mode-btn active" id="bbox-auto-btn"   onclick="setBboxMode('auto')">Auto</button>
+        <button class="mode-btn" id="bbox-custom-btn"        onclick="setBboxMode('custom')">Custom</button>
+        <button class="mode-btn" id="bbox-none-btn"          onclick="setBboxMode('none')">Unlimited</button>
       </div>
       <div id="bbox-slider-wrap" style="display:none;" class="field-hint">
         Extra padding: <span id="bbox-pad-label" style="color:var(--accent3)">500 m</span>
-        <input type="range" id="bbox-pad" min="0" max="20000" step="250" value="500"
-               style="width:100%;margin-top:6px;display:block;" oninput="onBboxSlider()"/>
+        <input type="range" id="bbox-pad" min="0" max="20000" step="250" value="500" style="width:100%;margin-top:6px;display:block;" oninput="onBboxSlider()"/>
         <span style="display:flex;justify-content:space-between;margin-top:2px;font-size:8px;"><span>← tighter</span><span>wider →</span></span>
       </div>
-      <div class="field-hint" id="bbox-hint">Auto-scales padding with route distance. Use Custom or Unlimited if the route detours outside the box.</div>
+      <div class="field-hint" id="bbox-hint">Auto-scales padding with route distance.</div>
     </div>
 
     <hr class="divider"/>
 
+    <!-- Visualization -->
     <div class="field-group">
       <div class="field-label">Visualization</div>
       <div class="mode-row">
-        <button class="mode-btn active" id="viz-on-btn" onclick="setViz(true)">Live On</button>
-        <button class="mode-btn" id="viz-off-btn" onclick="setViz(false)">Off (faster)</button>
+        <button class="mode-btn active" id="viz-on-btn"  onclick="setViz(true)">Live On</button>
+        <button class="mode-btn" id="viz-off-btn"        onclick="setViz(false)">Off (faster)</button>
       </div>
       <div id="viz-speed-wrap" class="field-hint" style="margin-top:2px;">
         Yield every <span id="viz-speed-label" style="color:var(--accent3)">20</span> nodes
@@ -355,18 +396,13 @@
 
     <hr class="divider"/>
 
-    <div class="field-group">
-      <div class="field-label">Algorithm</div>
-      <div class="field-hint">Downloads the <b style="color:var(--text)">full OSM road graph</b> and runs <b style="color:var(--text)">Dijkstra's algorithm</b> exhaustively — no shortcuts or heuristics.</div>
-    </div>
-
-    <hr class="divider"/>
-
+    <!-- Action buttons -->
     <button id="run-btn" onclick="findRoute()" disabled>Find True Shortest Path</button>
     <button id="clear-btn" onclick="clearAll()">Clear</button>
     <button id="gps-btn" onclick="toggleGPS()">📍 Use My GPS Location</button>
     <button id="nav-btn" onclick="toggleNavigation()">🧭 Start Navigation</button>
 
+    <!-- Status / stats -->
     <div id="status-box">
       <div id="status-text">Initializing…</div>
       <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
@@ -382,6 +418,37 @@
       <div class="stat-row"><span class="stat-key">Path nodes</span><span class="stat-val" id="stat-path">—</span></div>
     </div>
 
+    <!-- NEW: Replay panel (shown after route is found) -->
+    <div id="replay-panel">
+      <div id="replay-header">
+        <span id="replay-label">⏯ Replay Search</span>
+        <span id="replay-node-count"></span>
+      </div>
+      <input type="range" id="replay-scrubber" min="0" max="100" value="0" oninput="onReplayScrub(this.value)"/>
+      <div class="replay-controls">
+        <button class="replay-btn" id="replay-play-btn" onclick="toggleReplay()">▶ Play</button>
+        <button class="replay-btn" onclick="resetReplay()">↺ Reset</button>
+        <span style="font-size:9px;color:var(--muted);flex:1;text-align:right;" id="replay-pct">0%</span>
+      </div>
+    </div>
+
+    <hr class="divider" id="post-route-divider" style="display:none;"/>
+
+    <!-- NEW: Export + Share buttons (shown after route found) -->
+    <div id="post-route-actions" style="display:none; flex-direction:column; gap:8px;">
+      <button onclick="exportGPX()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:10px;border-radius:4px;cursor:pointer;width:100%;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">⬇ Export GPX</button>
+      <button onclick="shareRoute()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:10px;border-radius:4px;cursor:pointer;width:100%;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent3)';this.style.color='var(--accent3)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🔗 Share Route Link</button>
+      <button onclick="fetchElevation()" id="elev-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:10px;border-radius:4px;cursor:pointer;width:100%;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent3)';this.style.color='var(--accent3)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">📈 Elevation Profile</button>
+    </div>
+
+    <hr class="divider"/>
+
+    <!-- NEW: Recent routes -->
+    <div class="field-group">
+      <div class="field-label">Recent Routes</div>
+      <div id="recent-routes-list"></div>
+    </div>
+
   </div>
 </div>
 
@@ -390,49 +457,71 @@
   <div id="reroute-banner">🔄 Rerouting…</div>
   <div id="map"></div>
   <canvas id="viz-canvas"></canvas>
+  <canvas id="elev-canvas" style="display:none;"></canvas>
+
+  <!-- Map layer / theme controls -->
+  <div id="map-controls">
+    <button class="map-ctrl-btn active" id="tile-osm-btn"      onclick="setTileLayer('osm')">🗺 OSM</button>
+    <button class="map-ctrl-btn" id="tile-satellite-btn"       onclick="setTileLayer('satellite')">🛰 Satellite</button>
+    <button class="map-ctrl-btn" id="tile-hybrid-btn"          onclick="setTileLayer('hybrid')">🔀 Hybrid</button>
+    <button class="map-ctrl-btn" id="theme-btn"               onclick="toggleMapTheme()">☀ Light</button>
+  </div>
+
+  <!-- Compass bearing -->
+  <div id="compass-wrap">
+    <svg id="compass-svg" viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="27" cy="27" r="25" fill="rgba(10,10,15,0.9)" stroke="#1e1e2e" stroke-width="1.5"/>
+      <g id="compass-needle" style="transform-origin:27px 27px">
+        <polygon points="27,6 23,27 27,22 31,27" fill="#ff3366"/>
+        <polygon points="27,48 23,27 27,32 31,27" fill="#5a5a7a"/>
+      </g>
+      <text x="27" y="18" text-anchor="middle" font-size="7" fill="#e0e0f0" font-family="Space Mono">N</text>
+      <circle cx="27" cy="27" r="3" fill="#e0e0f0"/>
+    </svg>
+  </div>
+
+  <!-- Elevation profile overlay -->
+  <div id="elev-panel">
+    <div id="elev-header">
+      <span id="elev-title">Elevation Profile</span>
+      <span id="elev-stats"></span>
+      <button id="elev-close" onclick="closeElevation()">✕</button>
+    </div>
+    <canvas id="elev-canvas-draw" height="70"></canvas>
+  </div>
+
+  <!-- Visualization legend -->
   <div id="viz-legend">
     <div class="leg"><div class="leg-dot" style="background:#4488ff;box-shadow:0 0 8px #4488ff"></div><span>🔵 Visited node</span></div>
     <div class="leg"><div class="leg-line" style="background:rgba(68,136,255,0.6)"></div><span>📡 Explored edge</span></div>
-    <div class="leg"><div class="leg-line" style="background:#ffcc00; box-shadow:0 0 3px #ffcc00"></div><span>🟡 Best path so far</span></div>
-    <div class="leg"><div class="leg-line" style="background:#00ff88; box-shadow:0 0 5px #00ff88"></div><span>✅ Final shortest path</span></div>
+    <div class="leg"><div class="leg-line" style="background:#ffcc00;box-shadow:0 0 3px #ffcc00"></div><span>🟡 Best path so far</span></div>
+    <div class="leg"><div class="leg-line" style="background:#00ff88;box-shadow:0 0 5px #00ff88"></div><span>✅ Final shortest path</span></div>
   </div>
+
+  <!-- Share toast -->
+  <div id="share-toast"></div>
+
   <!-- Navigation HUD -->
   <div id="nav-hud">
-    <!-- Stop button at top — always visible -->
-    <div style="display:flex; align-items:center; justify-content:space-between; padding: 6px 14px 0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px 0;">
       <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">NAVIGATING</span>
-      <button onclick="toggleNavigation()" style="background:rgba(255,51,102,0.15);color:var(--accent2);border:1px solid var(--accent2);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:4px;cursor:pointer;">
-        🛑 Stop
-      </button>
+      <button onclick="toggleNavigation()" style="background:rgba(255,51,102,0.15);color:var(--accent2);border:1px solid var(--accent2);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:4px;cursor:pointer;">🛑 Stop</button>
     </div>
     <div id="nav-hud-top">
       <div id="nav-turn-arrow">⬆️</div>
       <div id="nav-turn-text">Head towards destination</div>
       <div id="nav-turn-dist">—</div>
     </div>
-    <!-- Progress bar -->
-    <div style="padding: 0 14px; margin-top: -1px; flex-shrink:0;">
+    <div style="padding:0 14px;margin-top:-1px;flex-shrink:0;">
       <div style="background:var(--border);border-radius:2px;height:3px;overflow:hidden;">
         <div id="nav-progress-fill" style="height:100%;background:linear-gradient(90deg,var(--accent3),var(--accent));border-radius:2px;width:0%;transition:width 0.5s ease;"></div>
       </div>
     </div>
     <div id="nav-hud-bottom">
-      <div class="nav-stat">
-        <div class="nav-stat-val" id="nav-remain-dist">—</div>
-        <div class="nav-stat-lbl">Remaining</div>
-      </div>
-      <div class="nav-stat">
-        <div class="nav-stat-val" id="nav-total-dist">—</div>
-        <div class="nav-stat-lbl">Total</div>
-      </div>
-      <div class="nav-stat">
-        <div class="nav-stat-val" id="nav-eta">—</div>
-        <div class="nav-stat-lbl">ETA</div>
-      </div>
-      <div class="nav-stat">
-        <div class="nav-stat-val" id="nav-speed">—</div>
-        <div class="nav-stat-lbl">km/h</div>
-      </div>
+      <div class="nav-stat"><div class="nav-stat-val" id="nav-remain-dist">—</div><div class="nav-stat-lbl">Remaining</div></div>
+      <div class="nav-stat"><div class="nav-stat-val" id="nav-total-dist">—</div><div class="nav-stat-lbl">Total</div></div>
+      <div class="nav-stat"><div class="nav-stat-val" id="nav-eta">—</div><div class="nav-stat-lbl">ETA</div></div>
+      <div class="nav-stat"><div class="nav-stat-val" id="nav-speed">—</div><div class="nav-stat-lbl">km/h</div></div>
     </div>
   </div>
 </div>
@@ -443,48 +532,83 @@
 // ═══════════════════════════════════════════════════════════════════════════
 let map, pointA = null, pointB = null;
 let markerA = null, markerB = null;
+let waypoints = [];        // [{lat,lng}] intermediate points
+let waypointMarkers = [];  // Leaflet markers
 let routeLayer = null;
 let inputMode = 'click';
 let clickStage = 'A';
 let vizEnabled = true;
 let vizYieldEvery = 20;
-let transportMode = 'car'; // 'car' | 'bike' | 'walk'
-let bboxMode = 'auto';     // 'auto' | 'custom' | 'none'
-let bboxExtraPadM = 500;   // extra padding in metres for 'custom' mode
-let bboxRectLayer = null;  // Leaflet rectangle showing the bbox
-let diagnosticLayers = []; // layers added only on route-not-found (cleared on next search)
+let transportMode = 'car';
+let algorithmMode = 'dijkstra'; // 'dijkstra' | 'astar'
+let bboxMode = 'auto';
+let bboxExtraPadM = 500;
+let bboxRectLayer = null;
+let diagnosticLayers = [];
+let avoidSet = new Set(); // 'highways' | 'tolls' | 'ferries'
+let currentTileLayer = 'osm';
+let mapTheme = 'dark';
+let tileLayerObj = null;
+let tileLayerObjLabels = null; // for hybrid mode overlay
+let waypointCount = 0;
 
 // Canvas visualization state
 let canvas, ctx;
-let vizNodes = null;               // id -> {lat, lng}
-let vizBestPath = null;            // [[lat,lng], ...] current best path
-let vizEdges = [];                 // [lat1,lng1, lat2,lng2] flat array for speed
-let vizNodeCoords = [];            // [lat, lng] flat pairs for speed
+let vizNodes = null;
+let vizBestPath = null;
+let vizEdges = [];
+let vizNodeCoords = [];
 let animFrame = null;
 let lastRedrawTime = 0;
-const REDRAW_INTERVAL_MS = 60;    // throttle redraws to 60fps max
+const REDRAW_INTERVAL_MS = 60;
+
+// ── NEW: Replay state ─────────────────────────────
+let replaySnapshot = null; // { nodes, edges, totalNodes } saved after search
+let replayTimer = null;
+let replayPlaying = false;
+let replayFrameIndex = 0;
+let replayFrameData = []; // array of {nodeCoords, edges, bestPath} frames
+
+// ── NEW: Tile layer configs ───────────────────────
+const TILE_LAYERS = {
+  osm: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attr: '© OpenStreetMap contributors',
+    label: '🗺 OSM'
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attr: '© Esri, DigitalGlobe',
+    label: '🛰 Satellite'
+  },
+  hybridBase: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attr: '© Esri, DigitalGlobe',
+    label: '🔀 Hybrid'
+  },
+  hybridLabels: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attr: ''
+  }
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAP INIT
 // ═══════════════════════════════════════════════════════════════════════════
 function initMap() {
-  map = L.map('map', { 
-    zoomControl: true,
-    preferCanvas: true 
-  }).setView([52.3728, 4.8936], 13);
-  
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors', 
+  map = L.map('map', { zoomControl: true, preferCanvas: true }).setView([52.3728, 4.8936], 13);
+
+  tileLayerObj = L.tileLayer(TILE_LAYERS.osm.url, {
+    attribution: TILE_LAYERS.osm.attr,
     maxZoom: 19,
     zIndex: 1
   }).addTo(map);
-  
+
   map.on('click', onMapClick);
 
   canvas = document.getElementById('viz-canvas');
   ctx = canvas.getContext('2d');
-  
-  // Function to update canvas size and position
+
   const updateCanvasSize = () => {
     const wrap = document.getElementById('map-wrap');
     const rect = wrap.getBoundingClientRect();
@@ -494,29 +618,77 @@ function initMap() {
     canvas.style.height = rect.height + 'px';
     if (vizNodes) scheduleRedraw();
   };
-  
-  // Initial size
+
   updateCanvasSize();
-  
-  // Update on resize and map movements
   window.addEventListener('resize', () => setTimeout(updateCanvasSize, 100));
-  map.on('move zoomend viewreset resize', () => {
-    setTimeout(updateCanvasSize, 50);
-    scheduleRedraw();
-  });
-  
-  // Also update on scroll just in case
+  map.on('move zoomend viewreset resize', () => { setTimeout(updateCanvasSize, 50); scheduleRedraw(); });
   window.addEventListener('scroll', updateCanvasSize);
-  
+
   const slider = document.getElementById('viz-speed');
   const label  = document.getElementById('viz-speed-label');
-  slider.addEventListener('input', () => {
-    vizYieldEvery = parseInt(slider.value);
-    label.textContent = vizYieldEvery;
+  slider.addEventListener('input', () => { vizYieldEvery = parseInt(slider.value); label.textContent = vizYieldEvery; });
+
+  // Load recent routes from localStorage
+  renderRecentRoutes();
+
+  // Parse URL share params
+  loadFromUrl();
+
+  // Compass rotation when map rotates (for future use, and for GPS heading)
+  map.on('rotate', updateCompassFromMap);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TILE LAYER SWITCHING
+// ═══════════════════════════════════════════════════════════════════════════
+function setTileLayer(name) {
+  currentTileLayer = name;
+  if (tileLayerObj) map.removeLayer(tileLayerObj);
+  if (tileLayerObjLabels) { map.removeLayer(tileLayerObjLabels); tileLayerObjLabels = null; }
+
+  if (name === 'osm') {
+    tileLayerObj = L.tileLayer(TILE_LAYERS.osm.url, { attribution: TILE_LAYERS.osm.attr, maxZoom: 19, zIndex: 1 }).addTo(map);
+  } else if (name === 'satellite') {
+    tileLayerObj = L.tileLayer(TILE_LAYERS.satellite.url, { attribution: TILE_LAYERS.satellite.attr, maxZoom: 19, zIndex: 1 }).addTo(map);
+  } else if (name === 'hybrid') {
+    tileLayerObj = L.tileLayer(TILE_LAYERS.hybridBase.url, { attribution: TILE_LAYERS.hybridBase.attr, maxZoom: 19, zIndex: 1 }).addTo(map);
+    tileLayerObjLabels = L.tileLayer(TILE_LAYERS.hybridLabels.url, { attribution: '', maxZoom: 19, zIndex: 2, opacity: 0.6 }).addTo(map);
+  }
+
+  applyMapThemeFilter();
+  ['osm','satellite','hybrid'].forEach(t => document.getElementById(`tile-${t}-btn`).classList.toggle('active', t === name));
+}
+
+function toggleMapTheme() {
+  mapTheme = mapTheme === 'dark' ? 'light' : 'dark';
+  document.getElementById('theme-btn').textContent = mapTheme === 'dark' ? '☀ Light' : '🌙 Dark';
+  applyMapThemeFilter();
+}
+
+function applyMapThemeFilter() {
+  const tilePanes = document.querySelectorAll('.leaflet-tile-pane');
+  tilePanes.forEach(p => {
+    if (mapTheme === 'dark') {
+      p.style.filter = currentTileLayer === 'satellite' || currentTileLayer === 'hybrid'
+        ? 'brightness(0.8) saturate(0.7)'
+        : 'saturate(0.7) brightness(0.85) contrast(0.95)';
+    } else {
+      p.style.filter = 'saturate(1) brightness(1) contrast(1)';
+    }
   });
-  
-  // Test canvas visibility
-  console.log('Canvas initialized:', canvas.width, canvas.height);
+  document.getElementById('map').style.background = mapTheme === 'dark' ? '#0d0d18' : '#e8e8f0';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPASS
+// ═══════════════════════════════════════════════════════════════════════════
+function updateCompassBearing(bearing) {
+  const needle = document.getElementById('compass-needle');
+  if (needle) needle.style.transform = `rotate(${bearing}deg)`;
+  document.getElementById('compass-wrap').classList.add('visible');
+}
+function updateCompassFromMap() {
+  // For future map rotation support
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -525,9 +697,15 @@ function initMap() {
 function makeIcon(color, glowColor) {
   return L.divIcon({
     className: '',
-    html: `<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 0 12px ${glowColor || color};"></div>`,
-    iconSize: [16,16], 
-    iconAnchor: [8,8]
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 0 12px ${glowColor||color};cursor:move;"></div>`,
+    iconSize: [16,16], iconAnchor: [8,8]
+  });
+}
+function makeWaypointIcon(idx) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:#ff9900;border:2px solid white;box-shadow:0 0 8px #ff9900;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:bold;color:#000;cursor:move;">${idx+1}</div>`,
+    iconSize: [14,14], iconAnchor: [7,7]
   });
 }
 
@@ -535,48 +713,150 @@ function onMapClick(e) {
   if (inputMode !== 'click') return;
   const { lat, lng } = e.latlng;
   if (clickStage === 'A') {
-    setPointA(lat, lng); 
+    setPointA(lat, lng);
     clickStage = 'B';
     updateOverlay('📍 Click map to set DESTINATION');
+    document.getElementById('click-swap-row').style.display = 'none';
   } else if (clickStage === 'B') {
-    setPointB(lat, lng); 
+    setPointB(lat, lng);
     clickStage = 'done';
     document.getElementById('map-overlay').style.opacity = '0';
-    setTimeout(() => {
-      document.getElementById('map-overlay').style.display = 'none';
-    }, 500);
+    setTimeout(() => { document.getElementById('map-overlay').style.display = 'none'; }, 500);
+    document.getElementById('click-swap-row').style.display = 'block';
   }
+}
+
+function makeMarkerDraggable(marker, callback) {
+  marker.options.draggable = true;
+  // Re-create as draggable
+  return marker;
 }
 
 function setPointA(lat, lng) {
   pointA = { lat, lng };
   if (markerA) markerA.remove();
-  markerA = L.marker([lat,lng], { icon: makeIcon('#00ff88', '#00ff88') }).bindTooltip('🏁 Origin').addTo(map);
-  updatePointsDisplay(); 
-  checkReady();
-  updateBboxPreview();
+  markerA = L.marker([lat,lng], {
+    icon: makeIcon('#00ff88','#00ff88'),
+    draggable: true
+  }).bindTooltip('🏁 Origin').addTo(map);
+  markerA.on('dragend', e => { const ll = e.target.getLatLng(); setPointA(ll.lat, ll.lng); });
+  updatePointsDisplay(); checkReady(); updateBboxPreview();
 }
 function setPointB(lat, lng) {
   pointB = { lat, lng };
   if (markerB) markerB.remove();
-  markerB = L.marker([lat,lng], { icon: makeIcon('#ff3366', '#ff3366') }).bindTooltip('🎯 Destination').addTo(map);
-  updatePointsDisplay(); 
-  checkReady();
-  updateBboxPreview();
+  markerB = L.marker([lat,lng], {
+    icon: makeIcon('#ff3366','#ff3366'),
+    draggable: true
+  }).bindTooltip('🎯 Destination').addTo(map);
+  markerB.on('dragend', e => { const ll = e.target.getLatLng(); setPointB(ll.lat, ll.lng); });
+  updatePointsDisplay(); checkReady(); updateBboxPreview();
 }
+
 function updatePointsDisplay() {
   document.getElementById('points-display').style.display = 'flex';
   if (pointA) document.getElementById('point-a-text').textContent = `▲ ${pointA.lat.toFixed(5)}, ${pointA.lng.toFixed(5)}`;
   if (pointB) document.getElementById('point-b-text').textContent = `▼ ${pointB.lat.toFixed(5)}, ${pointB.lng.toFixed(5)}`;
+  const wpDisp = document.getElementById('waypoints-display');
+  wpDisp.innerHTML = waypoints.map((wp,i) =>
+    `<div class="field-hint" style="color:#ff9900">● WP${i+1}: ${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}</div>`
+  ).join('');
 }
 function updateOverlay(text) {
   const el = document.getElementById('map-overlay');
-  el.style.opacity = '1';
-  el.style.display = 'block';
-  el.textContent = text;
+  el.style.opacity = '1'; el.style.display = 'block'; el.textContent = text;
 }
 function checkReady() {
   document.getElementById('run-btn').disabled = !(pointA && pointB);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SWAP A ↔ B
+// ═══════════════════════════════════════════════════════════════════════════
+function swapPoints() {
+  if (!pointA || !pointB) return;
+  const tmpCoord = { ...pointA };
+  const tmpInput = document.getElementById('origin-input').value;
+
+  setPointA(pointB.lat, pointB.lng);
+  setPointB(tmpCoord.lat, tmpCoord.lng);
+
+  // Also swap text inputs if in text mode
+  const destVal = document.getElementById('dest-input').value;
+  document.getElementById('origin-input').value = destVal;
+  document.getElementById('dest-input').value = tmpInput;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WAYPOINTS
+// ═══════════════════════════════════════════════════════════════════════════
+let wpInputCounter = 0;
+function addWaypoint() {
+  const id = ++wpInputCounter;
+  const container = document.getElementById('waypoints-container');
+  const div = document.createElement('div');
+  div.className = 'field-group';
+  div.id = `wp-field-${id}`;
+  div.innerHTML = `
+    <div class="field-label">● Waypoint</div>
+    <div class="waypoint-row">
+      <input class="field-input waypoint-input" id="wp-input-${id}" type="text" placeholder="e.g. Central Station, Amsterdam"/>
+      <button class="wp-remove-btn" onclick="removeWaypoint(${id})" title="Remove">✕</button>
+    </div>`;
+  container.appendChild(div);
+}
+function removeWaypoint(id) {
+  const el = document.getElementById(`wp-field-${id}`);
+  if (el) el.remove();
+}
+function getWaypointInputs() {
+  return Array.from(document.querySelectorAll('.waypoint-input'))
+    .map(inp => inp.value.trim())
+    .filter(v => v.length > 0);
+}
+
+function setWaypointCoords(coords) {
+  // Clear existing waypoint markers
+  waypointMarkers.forEach(m => m.remove());
+  waypointMarkers = [];
+  waypoints = coords;
+  coords.forEach((wp, i) => {
+    const m = L.marker([wp.lat, wp.lng], {
+      icon: makeWaypointIcon(i),
+      draggable: true
+    }).bindTooltip(`WP${i+1}`).addTo(map);
+    m.on('dragend', e => {
+      const ll = e.target.getLatLng();
+      waypoints[i] = { lat: ll.lat, lng: ll.lng };
+      updatePointsDisplay();
+    });
+    waypointMarkers.push(m);
+  });
+  updatePointsDisplay();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AVOID OPTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+function toggleAvoid(key) {
+  if (avoidSet.has(key)) avoidSet.delete(key);
+  else avoidSet.add(key);
+  document.getElementById(`avoid-${key}`).classList.toggle('active', avoidSet.has(key));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ALGORITHM TOGGLE
+// ═══════════════════════════════════════════════════════════════════════════
+function setAlgo(mode) {
+  algorithmMode = mode;
+  document.getElementById('algo-dijkstra').classList.toggle('active', mode === 'dijkstra');
+  document.getElementById('algo-astar').classList.toggle('active', mode === 'astar');
+  document.getElementById('algo-hint').innerHTML = mode === 'dijkstra'
+    ? 'Downloads full OSM graph, runs <b style="color:var(--text)">Dijkstra</b> exhaustively — no shortcuts.'
+    : 'Runs <b style="color:var(--text)">A★</b> with a Haversine heuristic — much faster, still optimal.';
+  document.getElementById('algo-tagline').textContent = mode === 'dijkstra'
+    ? 'OSM Exhaustive Pathfinder · Dijkstra'
+    : 'OSM Pathfinder · A★ Heuristic';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -592,7 +872,7 @@ function setViz(on) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CANVAS RENDERING - ENHANCED FOR VISIBILITY
+// CANVAS RENDERING
 // ═══════════════════════════════════════════════════════════════════════════
 function ll2xy(lat, lng) {
   const point = map.latLngToContainerPoint(L.latLng(lat, lng));
@@ -604,208 +884,259 @@ function scheduleRedraw() {
   if (animFrame) cancelAnimationFrame(animFrame);
   animFrame = requestAnimationFrame(() => {
     const now = Date.now();
-    if (now - lastRedrawTime >= REDRAW_INTERVAL_MS) {
-      redrawCanvas();
-      lastRedrawTime = now;
-    } else {
-      // Schedule another attempt
-      animFrame = requestAnimationFrame(() => scheduleRedraw());
-    }
+    if (now - lastRedrawTime >= REDRAW_INTERVAL_MS) { redrawCanvas(); lastRedrawTime = now; }
+    else { animFrame = requestAnimationFrame(() => scheduleRedraw()); }
   });
 }
 
 function redrawCanvas() {
   animFrame = null;
   if (!ctx || !canvas) return;
-  
-  // Clear with transparency to see map underneath
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
   if (!vizNodes || !vizEnabled) return;
 
-  // ── 1. Explored edges (translucent blue lines) ─────────────────────────
   if (vizEdges.length > 0) {
-    ctx.strokeStyle = 'rgba(68, 136, 255, 0.35)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(68,136,255,0.35)'; ctx.lineWidth = 1.5; ctx.beginPath();
     for (let i = 0; i < vizEdges.length; i += 4) {
-      const [ax, ay] = ll2xy(vizEdges[i], vizEdges[i+1]);
-      const [bx, by] = ll2xy(vizEdges[i+2], vizEdges[i+3]);
-      if (isFinite(ax) && isFinite(ay) && isFinite(bx) && isFinite(by)) {
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(bx, by);
-      }
+      const [ax,ay] = ll2xy(vizEdges[i], vizEdges[i+1]);
+      const [bx,by] = ll2xy(vizEdges[i+2], vizEdges[i+3]);
+      if (isFinite(ax)&&isFinite(ay)&&isFinite(bx)&&isFinite(by)) { ctx.moveTo(ax,ay); ctx.lineTo(bx,by); }
     }
     ctx.stroke();
   }
-
-  // ── 2. Visited nodes (glowing blue dots) ───────────────────────────────
   if (vizNodeCoords.length > 0) {
     for (let i = 0; i < vizNodeCoords.length; i += 2) {
-      const [x, y] = ll2xy(vizNodeCoords[i], vizNodeCoords[i+1]);
-      if (isFinite(x) && isFinite(y)) {
-        // Outer glow
-        ctx.beginPath();
-        ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(68, 136, 255, 0.2)';
-        ctx.fill();
-        // Inner core
-        ctx.beginPath();
-        ctx.arc(x, y, 2, 0, Math.PI * 2);
-        ctx.fillStyle = '#4488ff';
-        ctx.fill();
-        // Bright center
-        ctx.beginPath();
-        ctx.arc(x, y, 1, 0, Math.PI * 2);
-        ctx.fillStyle = '#aaddff';
-        ctx.fill();
+      const [x,y] = ll2xy(vizNodeCoords[i], vizNodeCoords[i+1]);
+      if (isFinite(x)&&isFinite(y)) {
+        ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fillStyle='rgba(68,136,255,0.2)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(x,y,2,0,Math.PI*2); ctx.fillStyle='#4488ff'; ctx.fill();
+        ctx.beginPath(); ctx.arc(x,y,1,0,Math.PI*2); ctx.fillStyle='#aaddff'; ctx.fill();
       }
     }
   }
-
-  // ── 3. Best path so far (dashed yellow, more visible) ──────────────────
   if (vizBestPath && vizBestPath.length > 1) {
-    ctx.strokeStyle = '#ffcc00';
-    ctx.lineWidth = 3.5;
-    ctx.setLineDash([8, 6]);
-    ctx.beginPath();
-    let firstPoint = true;
-    for (let i = 0; i < vizBestPath.length; i++) {
-      const [x, y] = ll2xy(vizBestPath[i][0], vizBestPath[i][1]);
-      if (isFinite(x) && isFinite(y)) {
-        if (firstPoint) {
-          ctx.moveTo(x, y);
-          firstPoint = false;
-        } else {
-          ctx.lineTo(x, y);
-        }
-      }
+    ctx.strokeStyle='#ffcc00'; ctx.lineWidth=3.5; ctx.setLineDash([8,6]); ctx.beginPath();
+    let first=true;
+    for (const pt of vizBestPath) {
+      const [x,y]=ll2xy(pt[0],pt[1]);
+      if (isFinite(x)&&isFinite(y)) { if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y); }
     }
-    ctx.stroke();
-    ctx.setLineDash([]);
-    
-    // Add small dots along best path for emphasis
-    ctx.fillStyle = '#ffcc00';
-    for (let i = 0; i < vizBestPath.length; i++) {
-      const [x, y] = ll2xy(vizBestPath[i][0], vizBestPath[i][1]);
-      if (isFinite(x) && isFinite(y)) {
-        ctx.beginPath();
-        ctx.arc(x, y, 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#ffcc00';
+    for (const pt of vizBestPath) {
+      const [x,y]=ll2xy(pt[0],pt[1]);
+      if(isFinite(x)&&isFinite(y)){ctx.beginPath();ctx.arc(x,y,2,0,Math.PI*2);ctx.fill();}
     }
   }
 }
 
 function clearCanvas() {
-  vizNodes = null;
-  vizBestPath = null;
-  vizEdges = [];
-  vizNodeCoords = [];
-  if (ctx) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
-  const legend = document.getElementById('viz-legend');
-  if (legend) legend.classList.remove('visible');
+  vizNodes=null; vizBestPath=null; vizEdges=[]; vizNodeCoords=[];
+  if (ctx) ctx.clearRect(0,0,canvas.width,canvas.height);
+  document.getElementById('viz-legend').classList.remove('visible');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// REPLAY SCRUBBER
+// ═══════════════════════════════════════════════════════════════════════════
+function buildReplayFrames(snapNodes, snapEdgeLog, snapPathLog) {
+  // snapEdgeLog: array of [lat1,lng1,lat2,lng2]  (each edge added during search)
+  // snapPathLog: array of best-path arrays at each yield point
+  const frames = [];
+  const step = Math.max(1, Math.floor(snapEdgeLog.length / 200));
+  let edgeSoFar = [];
+  let nodeSoFar = [];
+  for (let i = 0; i < snapEdgeLog.length; i += step) {
+    const chunk = snapEdgeLog.slice(i, i+step);
+    edgeSoFar = edgeSoFar.concat(chunk);
+    // Extract node coords from edges (from-nodes)
+    for (let j = 0; j < chunk.length; j++) {
+      const e = chunk[j];
+      nodeSoFar.push(e[0], e[1]);
+    }
+    const bestIdx = Math.floor((i / snapEdgeLog.length) * (snapPathLog.length-1));
+    frames.push({
+      edges: edgeSoFar.flat(),
+      nodeCoords: nodeSoFar.slice(),
+      bestPath: snapPathLog[bestIdx] || null
+    });
+  }
+  return frames;
+}
+
+function showReplayPanel(frames, totalNodes) {
+  replayFrameData = frames;
+  replayFrameIndex = 0;
+  replayPlaying = false;
+  const panel = document.getElementById('replay-panel');
+  panel.classList.add('visible');
+  document.getElementById('replay-scrubber').max = Math.max(1, frames.length - 1);
+  document.getElementById('replay-scrubber').value = 0;
+  document.getElementById('replay-node-count').textContent = `${frames.length} frames`;
+  document.getElementById('replay-pct').textContent = '0%';
+  document.getElementById('replay-play-btn').textContent = '▶ Play';
+}
+
+function onReplayScrub(val) {
+  if (!replayFrameData.length) return;
+  if (replayPlaying) toggleReplay(); // pause
+  replayFrameIndex = parseInt(val);
+  renderReplayFrame(replayFrameIndex);
+  const pct = Math.round((replayFrameIndex / Math.max(1, replayFrameData.length-1)) * 100);
+  document.getElementById('replay-pct').textContent = pct + '%';
+}
+
+function renderReplayFrame(idx) {
+  if (!replayFrameData[idx] || !vizNodes) return;
+  const f = replayFrameData[idx];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw edges
+  if (f.edges.length > 0) {
+    ctx.strokeStyle = 'rgba(68,136,255,0.3)'; ctx.lineWidth = 1.2; ctx.beginPath();
+    for (let i = 0; i < f.edges.length; i += 4) {
+      const [ax,ay] = ll2xy(f.edges[i], f.edges[i+1]);
+      const [bx,by] = ll2xy(f.edges[i+2], f.edges[i+3]);
+      if (isFinite(ax)&&isFinite(ay)&&isFinite(bx)&&isFinite(by)) { ctx.moveTo(ax,ay); ctx.lineTo(bx,by); }
+    }
+    ctx.stroke();
+  }
+  // Draw nodes
+  ctx.fillStyle = '#4488ff';
+  for (let i = 0; i < f.nodeCoords.length; i += 2) {
+    const [x,y] = ll2xy(f.nodeCoords[i], f.nodeCoords[i+1]);
+    if (isFinite(x)&&isFinite(y)) { ctx.beginPath(); ctx.arc(x,y,2,0,Math.PI*2); ctx.fill(); }
+  }
+  // Best path
+  if (f.bestPath && f.bestPath.length > 1) {
+    ctx.strokeStyle='#ffcc00'; ctx.lineWidth=3; ctx.setLineDash([7,5]); ctx.beginPath();
+    let first=true;
+    for (const pt of f.bestPath) {
+      const [x,y]=ll2xy(pt[0],pt[1]);
+      if(isFinite(x)&&isFinite(y)){if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y);}
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+
+function toggleReplay() {
+  if (!replayFrameData.length) return;
+  if (replayPlaying) {
+    clearInterval(replayTimer);
+    replayPlaying = false;
+    document.getElementById('replay-play-btn').textContent = '▶ Play';
+  } else {
+    if (replayFrameIndex >= replayFrameData.length - 1) replayFrameIndex = 0;
+    replayPlaying = true;
+    document.getElementById('replay-play-btn').textContent = '⏸ Pause';
+    replayTimer = setInterval(() => {
+      replayFrameIndex++;
+      document.getElementById('replay-scrubber').value = replayFrameIndex;
+      const pct = Math.round((replayFrameIndex / Math.max(1, replayFrameData.length-1)) * 100);
+      document.getElementById('replay-pct').textContent = pct + '%';
+      renderReplayFrame(replayFrameIndex);
+      if (replayFrameIndex >= replayFrameData.length - 1) {
+        clearInterval(replayTimer); replayPlaying = false;
+        document.getElementById('replay-play-btn').textContent = '▶ Play';
+      }
+    }, 30);
+  }
+}
+function resetReplay() {
+  if (replayPlaying) toggleReplay();
+  replayFrameIndex = 0;
+  document.getElementById('replay-scrubber').value = 0;
+  document.getElementById('replay-pct').textContent = '0%';
+  if (replayFrameData.length) renderReplayFrame(0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRANSPORT / BBOX
+// ═══════════════════════════════════════════════════════════════════════════
 function setTransport(mode) {
   transportMode = mode;
-  document.getElementById('tm-car').classList.toggle('active',  mode === 'car');
-  document.getElementById('tm-bike').classList.toggle('active', mode === 'bike');
-  document.getElementById('tm-walk').classList.toggle('active', mode === 'walk');
+  ['car','bike','walk'].forEach(m => document.getElementById(`tm-${m}`).classList.toggle('active', m===mode));
 }
-
 function setBboxMode(mode) {
   bboxMode = mode;
-  document.getElementById('bbox-auto-btn').classList.toggle('active',   mode === 'auto');
-  document.getElementById('bbox-custom-btn').classList.toggle('active', mode === 'custom');
-  document.getElementById('bbox-none-btn').classList.toggle('active',   mode === 'none');
-  document.getElementById('bbox-slider-wrap').style.display = mode === 'custom' ? 'block' : 'none';
+  ['auto','custom','none'].forEach(m => document.getElementById(`bbox-${m}-btn`).classList.toggle('active', m===mode));
+  document.getElementById('bbox-slider-wrap').style.display = mode==='custom'?'block':'none';
   const hints = {
-    auto:   'Auto-scales padding with route distance. Use Custom or Unlimited if the route detours outside the box.',
-    custom: 'Extra padding added around the straight-line corridor. Increase if the route needs to detour wide.',
-    none:   '⚠️ No bounding box — fetches all roads in the visible map area. Slow for large maps but handles any detour.'
+    auto:'Auto-scales padding with route distance.',
+    custom:'Extra padding around the straight-line corridor.',
+    none:'⚠️ No bounding box — fetches all roads in visible area.'
   };
   document.getElementById('bbox-hint').textContent = hints[mode];
-  document.getElementById('bbox-size-label').textContent = mode === 'auto' ? 'Auto' : mode === 'none' ? 'Off' : bboxExtraPadM >= 1000 ? (bboxExtraPadM/1000).toFixed(1)+'km' : bboxExtraPadM+'m';
+  document.getElementById('bbox-size-label').textContent = mode==='auto'?'Auto':mode==='none'?'Off':bboxExtraPadM>=1000?(bboxExtraPadM/1000).toFixed(1)+'km':bboxExtraPadM+'m';
   updateBboxPreview();
 }
-
 function onBboxSlider() {
   bboxExtraPadM = parseInt(document.getElementById('bbox-pad').value);
-  const label = bboxExtraPadM >= 1000 ? (bboxExtraPadM/1000).toFixed(1)+' km' : bboxExtraPadM+' m';
+  const label = bboxExtraPadM>=1000?(bboxExtraPadM/1000).toFixed(1)+' km':bboxExtraPadM+' m';
   document.getElementById('bbox-pad-label').textContent = label;
-  document.getElementById('bbox-size-label').textContent = bboxExtraPadM >= 1000 ? (bboxExtraPadM/1000).toFixed(1)+'km' : bboxExtraPadM+'m';
+  document.getElementById('bbox-size-label').textContent = bboxExtraPadM>=1000?(bboxExtraPadM/1000).toFixed(1)+'km':bboxExtraPadM+'m';
   updateBboxPreview();
 }
-
 function updateBboxPreview() {
-  if (bboxRectLayer) { map.removeLayer(bboxRectLayer); bboxRectLayer = null; }
-  if (!pointA || !pointB) return;
-  if (bboxMode === 'none') return; // no box to show
-
+  if (bboxRectLayer) { map.removeLayer(bboxRectLayer); bboxRectLayer=null; }
+  if (!pointA||!pointB||bboxMode==='none') return;
   const coords = computeBBoxCoords(pointA, pointB);
   if (!coords) return;
-  const [s, w, n, e] = coords;
-  bboxRectLayer = L.rectangle([[s, w], [n, e]], {
-    color: '#4488ff', weight: 1.5, dashArray: '5 4',
-    fill: true, fillColor: '#4488ff', fillOpacity: 0.04, interactive: false
-  }).addTo(map);
+  const [s,w,n,e] = coords;
+  bboxRectLayer = L.rectangle([[s,w],[n,e]], { color:'#4488ff', weight:1.5, dashArray:'5 4', fill:true, fillColor:'#4488ff', fillOpacity:0.04, interactive:false }).addTo(map);
+}
+function computeBBoxCoords(a, b) {
+  if (bboxMode==='none') return null;
+  const distM = haversineCoords(a.lat,a.lng,b.lat,b.lng);
+  let padM = bboxMode==='auto' ? Math.min(400,Math.max(150,distM*0.03)) : Math.min(400,Math.max(150,distM*0.03))+bboxExtraPadM;
+  const padLat = padM/111320;
+  const padLng = padM/(111320*Math.cos(((a.lat+b.lat)/2)*Math.PI/180));
+  return [Math.min(a.lat,b.lat)-padLat, Math.min(a.lng,b.lng)-padLng, Math.max(a.lat,b.lat)+padLat, Math.max(a.lng,b.lng)+padLng];
 }
 
-function computeBBoxCoords(a, b) {
-  if (bboxMode === 'none') return null;
-  const distM  = haversineCoords(a.lat, a.lng, b.lat, b.lng);
-  let padM;
-  if (bboxMode === 'auto') {
-    padM = Math.min(400, Math.max(150, distM * 0.03));
-  } else {
-    // custom: base auto padding + user extra
-    const base = Math.min(400, Math.max(150, distM * 0.03));
-    padM = base + bboxExtraPadM;
-  }
-  const padLat = padM / 111320;
-  const padLng = padM / (111320 * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180));
-  return [
-    Math.min(a.lat, b.lat) - padLat,
-    Math.min(a.lng, b.lng) - padLng,
-    Math.max(a.lat, b.lat) + padLat,
-    Math.max(a.lng, b.lng) + padLng
-  ];
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// INPUT MODE
 // ═══════════════════════════════════════════════════════════════════════════
 function setInputMode(mode) {
   inputMode = mode;
   document.getElementById('mode-click').classList.toggle('active', mode==='click');
-  document.getElementById('mode-text').classList.toggle('active',  mode==='text');
-  document.getElementById('click-instructions').style.display = mode==='click' ? 'flex' : 'none';
-  document.getElementById('text-inputs').style.display        = mode==='text'  ? 'flex' : 'none';
+  document.getElementById('mode-text').classList.toggle('active', mode==='text');
+  document.getElementById('click-instructions').style.display = mode==='click'?'flex':'none';
+  document.getElementById('text-inputs').style.display = mode==='text'?'flex':'none';
   if (mode==='click') {
     updateOverlay('📍 Click map to set ORIGIN');
     document.getElementById('map-overlay').style.display = 'block';
+    document.getElementById('click-swap-row').style.display = pointA&&pointB?'block':'none';
   } else {
     document.getElementById('map-overlay').style.display = 'none';
+    document.getElementById('click-swap-row').style.display = 'none';
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// GEOCODE (with waypoints)
+// ═══════════════════════════════════════════════════════════════════════════
 async function geocodeInputs() {
   const oQ = document.getElementById('origin-input').value.trim();
   const dQ = document.getElementById('dest-input').value.trim();
+  const wpQs = getWaypointInputs();
   if (!oQ && !dQ) return;
-  showError(''); 
-  setStatus('Geocoding addresses…', 10);
+  showError(''); setStatus('Geocoding addresses…', 10);
   async function geocode(q) {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`;
-    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    const res = await fetch(url, { headers: {'Accept-Language':'en'} });
     const data = await res.json();
     if (!data.length) throw new Error(`Could not find: "${q}"`);
     return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
   }
   try {
-    if (oQ) { const p = await geocode(oQ); setPointA(p.lat, p.lng); }
-    if (dQ) { const p = await geocode(dQ); setPointB(p.lat, p.lng); }
-    if (pointA && pointB) map.fitBounds([[pointA.lat,pointA.lng],[pointB.lat,pointB.lng]], { padding:[60,60] });
+    if (oQ) { const p=await geocode(oQ); setPointA(p.lat,p.lng); }
+    const wpCoords = [];
+    for (const q of wpQs) { const p=await geocode(q); wpCoords.push(p); }
+    setWaypointCoords(wpCoords);
+    if (dQ) { const p=await geocode(dQ); setPointB(p.lat,p.lng); }
+    const allPoints = [pointA, ...wpCoords, pointB].filter(Boolean);
+    if (allPoints.length >= 2) map.fitBounds(allPoints.map(p=>[p.lat,p.lng]), { padding:[60,60] });
     hideStatus();
   } catch(e) { showError(e.message); hideStatus(); }
 }
@@ -813,958 +1144,847 @@ async function geocodeInputs() {
 // ═══════════════════════════════════════════════════════════════════════════
 // OVERPASS
 // ═══════════════════════════════════════════════════════════════════════════
-function haversineCoords(lat1, lng1, lat2, lng2) {
-  const R = 6371000;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+function haversineCoords(lat1,lng1,lat2,lng2) {
+  const R=6371000, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
+function haversine(a,b) { return haversineCoords(a.lat,a.lng,b.lat,b.lng); }
 
 function buildBBox(a, b) {
-  if (bboxMode === 'none') {
-    // Use current map viewport bounds with a small buffer
-    const b2 = map.getBounds().pad(0.15);
-    return [b2.getSouth(), b2.getWest(), b2.getNorth(), b2.getEast()].join(',');
-  }
-  return computeBBoxCoords(a, b).join(',');
+  if (bboxMode==='none') { const b2=map.getBounds().pad(0.15); return [b2.getSouth(),b2.getWest(),b2.getNorth(),b2.getEast()].join(','); }
+  return computeBBoxCoords(a,b).join(',');
 }
 
-async function fetchRoadGraph(bbox, mode = 'car') {
-  let wayFilter;
-  if (mode === 'walk') {
-    wayFilter = `way["highway"~"^(footway|path|steps|pedestrian|living_street|residential|unclassified|tertiary|secondary|primary|service|track)$"]["access"!="private"](${bbox})`;
-  } else if (mode === 'bike') {
-    wayFilter = `way["highway"~"^(cycleway|path|footway|living_street|residential|unclassified|tertiary|secondary|primary|service|track)$"]["access"!="private"](${bbox})`;
-  } else {
-    wayFilter = `way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link|road)$"](${bbox})`;
-  }
-  const q = `[out:json][timeout:90][maxsize:134217728];(${wayFilter};);out body;>;out skel qt;`;
+// Build a bbox that covers all points (A, waypoints, B)
+function buildBBoxAll() {
+  if (bboxMode==='none') { const b2=map.getBounds().pad(0.15); return [b2.getSouth(),b2.getWest(),b2.getNorth(),b2.getEast()].join(','); }
+  const allPoints = [pointA, ...waypoints, pointB];
+  const lats = allPoints.map(p=>p.lat), lngs = allPoints.map(p=>p.lng);
+  const minLat=Math.min(...lats), maxLat=Math.max(...lats), minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
+  const fakeA={lat:minLat,lng:minLng}, fakeB={lat:maxLat,lng:maxLng};
+  return computeBBoxCoords(fakeA,fakeB).join(',');
+}
 
+async function fetchRoadGraph(bbox, mode='car') {
+  let highwayFilter;
+  if (mode==='walk') {
+    highwayFilter = `"highway"~"^(footway|path|steps|pedestrian|living_street|residential|unclassified|tertiary|secondary|primary|service|track)$"`;
+  } else if (mode==='bike') {
+    highwayFilter = `"highway"~"^(cycleway|path|footway|living_street|residential|unclassified|tertiary|secondary|primary|service|track)$"`;
+  } else {
+    highwayFilter = `"highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link|road)$"`;
+  }
+
+  // Build extra avoid filters
+  let avoidFilters = `["access"!="private"]`;
+  if (avoidSet.has('ferries')) avoidFilters += `["route"!="ferry"]`;
+  // Note: Overpass way filter can't easily exclude by tag presence for highways/tolls mid-query,
+  // so we filter post-build for tolls/highways using tags on elements.
+
+  const wayFilter = `way[${highwayFilter}]${avoidFilters}(${bbox})`;
+  const q = `[out:json][timeout:90][maxsize:134217728];(${wayFilter};);out body;>;out skel qt;`;
   const mirrors = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   ];
-
   async function tryFetch(base, attempt) {
     const hostname = new URL(base).hostname;
     setStatus(`🌍 Querying ${hostname}… (attempt ${attempt})`, 8);
-
-    // Use POST to avoid URL length limits and reduce server load
-    const res = await fetch(base, {
-      method: 'POST',
-      mode: 'cors',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'data=' + encodeURIComponent(q)
-    });
-
+    const res = await fetch(base, { method:'POST', mode:'cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(q) });
     if (!res.ok) throw new Error(`HTTP ${res.status} from ${hostname}`);
-
     const text = await res.text();
-
-    // Detect XML/HTML error responses (server busy, timeout etc.)
     if (text.trim().startsWith('<')) {
-      const match = text.match(/<p><strong[^>]*>Error<\/strong>:\s*([^<]+)/i)
-                 || text.match(/runtime error[^<]*/i);
-      const reason = match ? match[0].replace(/<[^>]+>/g,'').trim() : 'Server returned an error page';
-      throw new Error(reason);
+      const match = text.match(/<p><strong[^>]*>Error<\/strong>:\s*([^<]+)/i)||text.match(/runtime error[^<]*/i);
+      throw new Error(match?match[0].replace(/<[^>]+>/g,'').trim():'Server returned an error page');
     }
-
-    let data;
-    try { data = JSON.parse(text); } 
-    catch(e) { throw new Error(`Bad JSON from ${hostname}`); }
-
-    if (!data.elements || data.elements.length === 0)
-      throw new Error(`No road data returned from ${hostname}`);
-
+    let data; try { data=JSON.parse(text); } catch(e) { throw new Error(`Bad JSON from ${hostname}`); }
+    if (!data.elements||data.elements.length===0) throw new Error(`No road data returned from ${hostname}`);
     return data;
   }
-
-  // Try all mirrors with exponential backoff per mirror (2 attempts each)
   let lastErr;
   for (const base of mirrors) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        return await tryFetch(base, attempt);
-      } catch(e) {
-        lastErr = e;
-        console.warn(`Mirror ${base} attempt ${attempt} failed:`, e.message);
-        if (attempt < 2) {
-          // Brief wait before retry on same mirror
-          setStatus(`⏳ Retrying ${new URL(base).hostname}… (${e.message.slice(0,60)})`, 8);
-          await new Promise(r => setTimeout(r, 1500 * attempt));
-        }
-      }
+    for (let attempt=1; attempt<=2; attempt++) {
+      try { return await tryFetch(base,attempt); }
+      catch(e) { lastErr=e; console.warn(`Mirror ${base} attempt ${attempt} failed:`,e.message); if(attempt<2){setStatus(`⏳ Retrying…`,8);await new Promise(r=>setTimeout(r,1500*attempt));} }
     }
-    // Short pause before trying next mirror
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r=>setTimeout(r,800));
   }
-
-  throw new Error(`All Overpass mirrors failed. The area may be too large or servers are busy. Try a shorter route or try again in a moment. Last error: ${lastErr?.message}`);
+  throw new Error(`All Overpass mirrors failed. Last error: ${lastErr?.message}`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GRAPH
 // ═══════════════════════════════════════════════════════════════════════════
-function haversine(a, b) {
-  const R = 6371000;
-  const dLat = (b.lat-a.lat) * Math.PI/180;
-  const dLng = (b.lng-a.lng) * Math.PI/180;
-  const c = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(c), Math.sqrt(1-c));
-}
-
-function buildGraph(osmData, mode = 'car') {
-  const nodes = {}, adj = {};
-  const ignoreOneway = (mode === 'walk' || mode === 'bike');
+function buildGraph(osmData, mode='car') {
+  const nodes={}, adj={};
+  const ignoreOneway=(mode==='walk'||mode==='bike');
   for (const el of osmData.elements) {
-    if (el.type === 'node') { nodes[el.id] = { lat: el.lat, lng: el.lon }; adj[el.id] = []; }
+    if (el.type==='node') { nodes[el.id]={lat:el.lat,lng:el.lon}; adj[el.id]=[]; }
   }
   for (const el of osmData.elements) {
-    if (el.type !== 'way') continue;
-    const nds = el.nodes;
-    const ow  = !ignoreOneway && el.tags && (el.tags.oneway==='yes' || el.tags.oneway==='1' || el.tags.junction==='roundabout' || el.tags.highway==='motorway');
-    const owr = !ignoreOneway && el.tags && el.tags.oneway==='-1';
-    for (let i = 0; i < nds.length-1; i++) {
-      const u = nds[i], v = nds[i+1];
-      if (!nodes[u] || !nodes[v]) continue;
-      const d = haversine(nodes[u], nodes[v]);
-      if (!owr)        adj[u].push({ to: v, dist: d });
-      if (!ow && !owr) adj[v].push({ to: u, dist: d });
-      if (owr)         adj[v].push({ to: u, dist: d });
+    if (el.type!=='way') continue;
+    const tags = el.tags || {};
+    // Apply avoid filters post-fetch
+    if (avoidSet.has('highways') && (tags.highway==='motorway'||tags.highway==='motorway_link'||tags.highway==='trunk'||tags.highway==='trunk_link')) continue;
+    if (avoidSet.has('tolls') && tags.toll==='yes') continue;
+    if (avoidSet.has('ferries') && tags.route==='ferry') continue;
+    const nds=el.nodes;
+    const ow=!ignoreOneway&&(tags.oneway==='yes'||tags.oneway==='1'||tags.junction==='roundabout'||tags.highway==='motorway');
+    const owr=!ignoreOneway&&tags.oneway==='-1';
+    for (let i=0;i<nds.length-1;i++) {
+      const u=nds[i],v=nds[i+1];
+      if (!nodes[u]||!nodes[v]) continue;
+      const d=haversine(nodes[u],nodes[v]);
+      if (!owr)       adj[u].push({to:v,dist:d});
+      if (!ow&&!owr)  adj[v].push({to:u,dist:d});
+      if (owr)        adj[v].push({to:u,dist:d});
     }
   }
-  return { nodes, adj };
+  return {nodes,adj};
 }
 
 function snapToNode(nodes, point) {
-  let best = null, bestD = Infinity;
-  for (const [id, n] of Object.entries(nodes)) {
-    const d = haversine(n, point);
-    if (d < bestD) { bestD = d; best = id; }
-  }
+  let best=null, bestD=Infinity;
+  for (const [id,n] of Object.entries(nodes)) { const d=haversine(n,point); if(d<bestD){bestD=d;best=id;} }
   return best;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DIJKSTRA — with enhanced live visualization
+// DIJKSTRA
 // ═══════════════════════════════════════════════════════════════════════════
-async function dijkstra(adj, nodes, startId, endId, totalNodes, onProgress) {
-  const dist = {}, prev = {};
+class MinHeap {
+  constructor() { this.h=[]; }
+  push(item) { this.h.push(item); this._up(this.h.length-1); }
+  pop() { const top=this.h[0],last=this.h.pop(); if(this.h.length){this.h[0]=last;this._down(0);} return top; }
+  _up(i) { while(i>0){const p=(i-1)>>1;if(this.h[p].d<=this.h[i].d)break;[this.h[p],this.h[i]]=[this.h[i],this.h[p]];i=p;} }
+  _down(i) { const n=this.h.length; while(true){let m=i,l=2*i+1,r=2*i+2;if(l<n&&this.h[l].d<this.h[m].d)m=l;if(r<n&&this.h[r].d<this.h[m].d)m=r;if(m===i)break;[this.h[i],this.h[m]]=[this.h[m],this.h[i]];i=m;} }
+  get size() { return this.h.length; }
+}
 
-  class MinHeap {
-    constructor() { this.h = []; }
-    push(item) { this.h.push(item); this._up(this.h.length-1); }
-    pop() {
-      const top = this.h[0], last = this.h.pop();
-      if (this.h.length) { this.h[0] = last; this._down(0); }
-      return top;
-    }
-    _up(i) { while(i>0){const p=(i-1)>>1;if(this.h[p].d<=this.h[i].d)break;[this.h[p],this.h[i]]=[this.h[i],this.h[p]];i=p;} }
-    _down(i) { const n=this.h.length; while(true){let m=i,l=2*i+1,r=2*i+2;if(l<n&&this.h[l].d<this.h[m].d)m=l;if(r<n&&this.h[r].d<this.h[m].d)m=r;if(m===i)break;[this.h[i],this.h[m]]=[this.h[m],this.h[i]];i=m;} }
-    get size() { return this.h.length; }
-  }
+async function dijkstra(adj, nodes, startId, endId, totalNodes, onProgress, edgeLog, pathLog) {
+  const dist={}, prev={};
+  const pq=new MinHeap();
+  dist[startId]=0; pq.push({d:0,id:startId});
+  let visited=0, sinceYield=0, lastYieldMs=Date.now();
 
-  const pq = new MinHeap();
-  dist[startId] = 0;
-  pq.push({ d: 0, id: startId });
+  while (pq.size>0) {
+    const {d,id}=pq.pop();
+    if (d>(dist[id]??Infinity)) continue;
+    visited++; sinceYield++;
+    if (id==endId) break;
+    const n=nodes[id];
+    if (n&&vizEnabled) vizNodeCoords.push(n.lat,n.lng);
 
-  let visited = 0, sinceYield = 0, lastYieldMs = Date.now();
-
-  while (pq.size > 0) {
-    const { d, id } = pq.pop();
-    if (d > (dist[id] ?? Infinity)) continue;
-
-    visited++;
-    sinceYield++;
-
-    if (id == endId) break;
-
-    // record for viz
-    if (vizEnabled) {
-      const n = nodes[id];
-      if (n) { vizNodeCoords.push(n.lat, n.lng); }
-    }
-
-    for (const { to, dist: w } of (adj[id] || [])) {
-      const nd = d + w;
-      if (nd < (dist[to] ?? Infinity)) {
-        dist[to] = nd;
-        prev[to] = id;
-        pq.push({ d: nd, id: to });
-
-        if (vizEnabled) {
-          const a = nodes[id], b = nodes[to];
-          if (a && b) vizEdges.push(a.lat, a.lng, b.lat, b.lng);
-        }
+    for (const {to,dist:w} of (adj[id]||[])) {
+      const nd=d+w;
+      if (nd<(dist[to]??Infinity)) {
+        dist[to]=nd; prev[to]=id; pq.push({d:nd,id:to});
+        if (vizEnabled) { const a=nodes[id],b=nodes[to]; if(a&&b){vizEdges.push(a.lat,a.lng,b.lat,b.lng); if(edgeLog)edgeLog.push([a.lat,a.lng,b.lat,b.lng]);} }
       }
     }
-
-    // Yield to browser for visualization updates
-    const doYield = vizEnabled
-      ? sinceYield >= vizYieldEvery
-      : Date.now() - lastYieldMs > 80;
-
+    const doYield=vizEnabled?sinceYield>=vizYieldEvery:Date.now()-lastYieldMs>80;
     if (doYield) {
-      if (vizEnabled && dist[endId] !== undefined) {
-        vizBestPath = tracePath(prev, endId, nodes);
-      }
-      scheduleRedraw();
-      onProgress(visited, totalNodes);
-      await new Promise(r => setTimeout(r, 0));
-      lastYieldMs = Date.now();
-      sinceYield = 0;
+      if (vizEnabled&&dist[endId]!==undefined) { vizBestPath=tracePath(prev,endId,nodes); if(pathLog)pathLog.push(vizBestPath.slice()); }
+      scheduleRedraw(); onProgress(visited,totalNodes);
+      await new Promise(r=>setTimeout(r,0)); lastYieldMs=Date.now(); sinceYield=0;
     }
   }
+  return {dist,prev,visited};
+}
 
-  return { dist, prev, visited };
+// ═══════════════════════════════════════════════════════════════════════════
+// A★
+// ═══════════════════════════════════════════════════════════════════════════
+async function astar(adj, nodes, startId, endId, totalNodes, onProgress, edgeLog, pathLog) {
+  const endNode = nodes[endId];
+  const g={}, prev={};
+  g[startId]=0;
+  const f={};
+  f[startId]=haversine(nodes[startId]||{lat:0,lng:0}, endNode||{lat:0,lng:0});
+  const pq=new MinHeap();
+  pq.push({d:f[startId],id:startId});
+  const closed=new Set();
+  let visited=0, sinceYield=0, lastYieldMs=Date.now();
+
+  while (pq.size>0) {
+    const {id}=pq.pop();
+    if (closed.has(id)) continue;
+    closed.add(id);
+    visited++; sinceYield++;
+    if (id==endId) break;
+    const n=nodes[id];
+    if (n&&vizEnabled) vizNodeCoords.push(n.lat,n.lng);
+
+    for (const {to,dist:w} of (adj[id]||[])) {
+      if (closed.has(to)) continue;
+      const tentG=(g[id]??Infinity)+w;
+      if (tentG<(g[to]??Infinity)) {
+        g[to]=tentG; prev[to]=id;
+        const h=haversine(nodes[to]||{lat:0,lng:0}, endNode||{lat:0,lng:0});
+        f[to]=tentG+h;
+        pq.push({d:f[to],id:to});
+        if (vizEnabled) { const a=nodes[id],b=nodes[to]; if(a&&b){vizEdges.push(a.lat,a.lng,b.lat,b.lng); if(edgeLog)edgeLog.push([a.lat,a.lng,b.lat,b.lng]);} }
+      }
+    }
+    const doYield=vizEnabled?sinceYield>=vizYieldEvery:Date.now()-lastYieldMs>80;
+    if (doYield) {
+      if (vizEnabled&&g[endId]!==undefined) { vizBestPath=tracePath(prev,endId,nodes); if(pathLog)pathLog.push(vizBestPath.slice()); }
+      scheduleRedraw(); onProgress(visited,totalNodes);
+      await new Promise(r=>setTimeout(r,0)); lastYieldMs=Date.now(); sinceYield=0;
+    }
+  }
+  return {dist:g, prev, visited};
 }
 
 function tracePath(prev, endId, nodes) {
-  const path = [];
-  let cur = endId;
-  const seen = new Set();
-  while (cur !== undefined && !seen.has(cur)) {
-    seen.add(cur);
-    const n = nodes[cur];
-    if (n) path.unshift([n.lat, n.lng]);
-    cur = prev[cur];
-  }
+  const path=[]; let cur=endId; const seen=new Set();
+  while(cur!==undefined&&!seen.has(cur)){seen.add(cur);const n=nodes[cur];if(n)path.unshift([n.lat,n.lng]);cur=prev[cur];}
   return path;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MAIN
+// MAIN ROUTE FINDING
 // ═══════════════════════════════════════════════════════════════════════════
 async function findRoute() {
-  if (!pointA || !pointB) return;
-  clearRoute(); 
-  clearCanvas();
-  showError('');
+  if (!pointA||!pointB) return;
+  clearRoute(); clearCanvas(); showError('');
   document.getElementById('stats-box').classList.remove('visible');
+  document.getElementById('replay-panel').classList.remove('visible');
+  document.getElementById('post-route-actions').style.display = 'none';
+  document.getElementById('post-route-divider').style.display = 'none';
   document.getElementById('run-btn').disabled = true;
-  const t0 = performance.now();
+  closeElevation();
+  const t0=performance.now();
+
+  // All stop points: A → (waypoints) → B
+  const stopPoints = [pointA, ...waypoints, pointB];
 
   try {
-    // 0. Distance sanity check
-    const straightLineKm = haversineCoords(pointA.lat, pointA.lng, pointB.lat, pointB.lng) / 1000;
-    if (straightLineKm > 25) {
-      showError(`⚠️ Route is ~${straightLineKm.toFixed(0)} km straight-line — Overpass servers may time out on large areas. Consider shorter routes for best results.`);
-    }
+    const straightLineKm = haversineCoords(pointA.lat,pointA.lng,pointB.lat,pointB.lng)/1000;
+    if (straightLineKm>25) showError(`⚠️ Route is ~${straightLineKm.toFixed(0)} km — Overpass may time out. Consider shorter routes.`);
 
-    // 1. Fetch
     setStatus('🌍 Fetching road graph from OpenStreetMap…', 5);
     let osmData;
-    try { osmData = await fetchRoadGraph(buildBBox(pointA, pointB), transportMode); }
-    catch(e) { throw new Error('Overpass API failed: ' + e.message); }
+    try { osmData = await fetchRoadGraph(buildBBoxAll(), transportMode); }
+    catch(e) { throw new Error('Overpass API failed: '+e.message); }
 
-    const nodeCount = osmData.elements.filter(e=>e.type==='node').length;
-    const wayCount  = osmData.elements.filter(e=>e.type==='way').length;
+    const nodeCount=osmData.elements.filter(e=>e.type==='node').length;
+    const wayCount=osmData.elements.filter(e=>e.type==='way').length;
 
-    // 2. Build graph
     setStatus(`🔧 Building graph… (${nodeCount.toLocaleString()} nodes, ${wayCount.toLocaleString()} ways)`, 25);
-    await new Promise(r => setTimeout(r, 0));
-    const { nodes, adj } = buildGraph(osmData, transportMode);
-    const totalNodes = Object.keys(nodes).length;
-    if (totalNodes === 0) throw new Error('No road data found in this area.');
+    await new Promise(r=>setTimeout(r,0));
+    const {nodes,adj}=buildGraph(osmData,transportMode);
+    const totalNodes=Object.keys(nodes).length;
+    if (totalNodes===0) throw new Error('No road data found in this area.');
 
-    let edgeCount = 0;
-    for (const k of Object.keys(adj)) edgeCount += adj[k].length;
+    let edgeCount=0;
+    for (const k of Object.keys(adj)) edgeCount+=adj[k].length;
 
-    // 3. Snap
+    // Snap all stop points
     setStatus('📍 Snapping to nearest road nodes…', 35);
-    await new Promise(r => setTimeout(r, 0));
-    const startId = snapToNode(nodes, pointA);
-    const endId   = snapToNode(nodes, pointB);
-    if (!startId || !endId) throw new Error('Could not snap points to road network.');
+    await new Promise(r=>setTimeout(r,0));
+    const snappedIds = stopPoints.map(pt => { const id=snapToNode(nodes,pt); if(!id)throw new Error('Could not snap point to road network.'); return id; });
 
-    // Show snap rings
-    const sn = nodes[startId], en = nodes[endId];
-    L.circleMarker([sn.lat,sn.lng], { radius:6, color:'#00ff88', fill:false, weight:2, opacity:0.8 }).bindTooltip('Snapped origin').addTo(map);
-    L.circleMarker([en.lat,en.lng], { radius:6, color:'#ff3366', fill:false, weight:2, opacity:0.8 }).bindTooltip('Snapped destination').addTo(map);
-
-    // 4. Prep viz
-    vizNodes = nodes;
-    if (vizEnabled) {
-      const legend = document.getElementById('viz-legend');
-      if (legend) legend.classList.add('visible');
-      scheduleRedraw();
-    }
-
-    // 5. Dijkstra
-    const modeLabel = transportMode === 'bike' ? '🚲 bicycle' : transportMode === 'walk' ? '🚶 walking' : '🚗 car';
-    const routeColor = transportMode === 'bike' ? '#ff9900' : transportMode === 'walk' ? '#00ddff' : '#00ff88';
-    setStatus(`⚡ Running Dijkstra on ${totalNodes.toLocaleString()} nodes…`, 45);
-    await new Promise(r => setTimeout(r, 0));
-
-    const { dist, prev, visited } = await dijkstra(adj, nodes, startId, endId, totalNodes, (v, total) => {
-      const pct = 45 + Math.round((v/total)*45);
-      setStatus(`⚡ Dijkstra exploring… ${v.toLocaleString()} / ${total.toLocaleString()} nodes`, Math.min(pct, 90));
+    // Show snap rings for all
+    snappedIds.forEach((id,i) => {
+      const n=nodes[id];
+      const color=i===0?'#00ff88':i===snappedIds.length-1?'#ff3366':'#ff9900';
+      L.circleMarker([n.lat,n.lng],{radius:6,color,fill:false,weight:2,opacity:0.8}).bindTooltip(i===0?'Snapped origin':i===snappedIds.length-1?'Snapped destination':`WP${i}`).addTo(map);
     });
 
-    setStatus('🎯 Reconstructing path…', 92);
-    await new Promise(r => setTimeout(r, 0));
+    vizNodes=nodes;
+    if (vizEnabled) { document.getElementById('viz-legend').classList.add('visible'); scheduleRedraw(); }
 
-    if (dist[endId] === undefined || dist[endId] === Infinity) {
-      // ── Diagnostic: show where Dijkstra got stuck ──────────────────────────
-      // Keep canvas but dim it — show reachable nodes in blue, frontier in orange,
-      // unreached destination side in red, and draw the gap as a dashed line.
+    const algoLabel = algorithmMode==='astar' ? 'A★' : 'Dijkstra';
+    const modeLabel=transportMode==='bike'?'🚲':transportMode==='walk'?'🚶':'🚗';
+    const routeColor=transportMode==='bike'?'#ff9900':transportMode==='walk'?'#00ddff':'#00ff88';
 
-      // Clear canvas and redraw with diagnostic colours
-      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-      vizNodes = null; vizNodeCoords = []; vizEdges = []; vizBestPath = null;
+    // Run algorithm segment by segment (A→WP1→...→B)
+    let totalDist=0, totalVisited=0;
+    const fullPath=[];
+    const allEdgeLog=[], allPathLog=[];
 
-      const reachable = new Set(Object.keys(dist));
+    for (let seg=0; seg<snappedIds.length-1; seg++) {
+      const segStart=snappedIds[seg], segEnd=snappedIds[seg+1];
+      const segLabel = `${seg+1}/${snappedIds.length-1}`;
+      setStatus(`⚡ ${algoLabel} — segment ${segLabel} (${totalNodes.toLocaleString()} nodes)…`, 45+Math.round((seg/(snappedIds.length-1))*40));
+      await new Promise(r=>setTimeout(r,0));
 
-      // Find the frontier: reachable nodes closest to the destination
-      const endNode = nodes[endId];
-      let frontierNodes = [];
-      for (const id of reachable) {
-        const n = nodes[id];
-        if (!n) continue;
-        frontierNodes.push({ id, lat: n.lat, lng: n.lng,
-          distToEnd: haversine(n, endNode) });
+      const edgeLog=[], pathLog=[];
+      const searchFn = algorithmMode==='astar' ? astar : dijkstra;
+      const {dist,prev,visited} = await searchFn(adj,nodes,segStart,segEnd,totalNodes,(v,total)=>{
+        const pct=45+Math.round((seg/(snappedIds.length-1))*40)+Math.round((v/total)*40/(snappedIds.length-1));
+        setStatus(`⚡ ${algoLabel} exploring (seg ${segLabel})… ${v.toLocaleString()} nodes`,Math.min(pct,90));
+      }, edgeLog, pathLog);
+
+      if (dist[segEnd]===undefined||dist[segEnd]===Infinity) {
+        // Run diagnostics for this segment
+        handleDisconnected(dist,nodes,segEnd);
+        throw new Error(`No path found for segment ${segLabel} — road network may be disconnected.`);
       }
-      frontierNodes.sort((a, b) => a.distToEnd - b.distToEnd);
-      const topFrontier = frontierNodes.slice(0, 5); // 5 closest reachable nodes to destination
-
-      // Draw reachable nodes as small blue dots on canvas
-      const project = (lat, lng) => map.latLngToContainerPoint([lat, lng]);
-      if (ctx) {
-        // Reachable region — soft blue fill dots
-        ctx.fillStyle = 'rgba(0, 150, 255, 0.25)';
-        for (const id of reachable) {
-          const n = nodes[id];
-          if (!n) continue;
-          const pt = project(n.lat, n.lng);
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        // Frontier nodes — bright orange circles
-        ctx.strokeStyle = '#ff9900';
-        ctx.lineWidth = 2;
-        for (const fn of topFrontier) {
-          const pt = project(fn.lat, fn.lng);
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, 7, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      }
-
-      // Leaflet markers for the closest frontier node and the unreachable destination snap
-      const closest = topFrontier[0];
-      if (closest) {
-        diagnosticLayers.push(L.circleMarker([closest.lat, closest.lng], {
-          radius: 10, color: '#ff9900', fillColor: '#ff9900',
-          fillOpacity: 0.5, weight: 3
-        }).bindPopup(
-          `<b>🚧 Frontier (stuck here)</b><br>
-           Dijkstra reached this node but could not continue to destination.<br>
-           <small>Gap to destination: ${(closest.distToEnd).toFixed(0)} m</small>`
-        ).addTo(map).openPopup());
-
-        // Dashed gap line
-        diagnosticLayers.push(L.polyline(
-          [[closest.lat, closest.lng], [endNode.lat, endNode.lng]],
-          { color: '#ff3366', weight: 3, dashArray: '8 6', opacity: 0.85 }
-        ).bindTooltip('⛔ Disconnected gap').addTo(map));
-      }
-
-      // Highlight the unreachable end snap node
-      diagnosticLayers.push(L.circleMarker([endNode.lat, endNode.lng], {
-        radius: 10, color: '#ff3366', fillColor: '#ff3366',
-        fillOpacity: 0.35, weight: 3
-      }).bindPopup('<b>🔴 Destination unreachable</b><br>No connected road path leads here from your origin.').addTo(map));
-
-      // Zoom to show both the frontier and the destination
-      if (closest) {
-        map.fitBounds([
-          [closest.lat, closest.lng],
-          [endNode.lat, endNode.lng]
-        ], { padding: [80, 80] });
-      }
-
-      throw new Error(
-        `No path found — road network is disconnected. ` +
-        `The orange circle shows where Dijkstra got stuck (${closest ? (closest.distToEnd).toFixed(0) + ' m from destination' : 'unknown'}). ` +
-        `The dashed red line shows the gap. Try a different mode or adjust your points.`
-      );
+      const segPath=tracePath(prev,segEnd,nodes);
+      if (segPath.length<2) throw new Error('Path reconstruction failed.');
+      if (fullPath.length===0) fullPath.push(...segPath);
+      else fullPath.push(...segPath.slice(1)); // avoid duplicate junction nodes
+      totalDist+=dist[segEnd];
+      totalVisited+=visited;
+      allEdgeLog.push(...edgeLog);
+      allPathLog.push(...pathLog);
     }
 
-    const path = tracePath(prev, endId, nodes);
-    if (path.length < 2) throw new Error('Path reconstruction failed.');
-
-    // 6. Final render — clear all exploration dots/edges, show only the route
-    vizNodes = null;
-    vizNodeCoords = [];
-    vizEdges = [];
-    vizBestPath = null;
-    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const legend = document.getElementById('viz-legend');
-    if (legend) legend.classList.remove('visible');
-    routeLayer = L.polyline(path, { color: routeColor, weight:5, opacity:0.95, lineJoin:'round' }).addTo(map);
-    map.fitBounds(routeLayer.getBounds(), { padding:[40,40] });
-
-    // Redraw bbox preview on top of the route
+    // Final render
+    vizNodes=null; vizNodeCoords=[]; vizEdges=[]; vizBestPath=null;
+    if (ctx) ctx.clearRect(0,0,canvas.width,canvas.height);
+    document.getElementById('viz-legend').classList.remove('visible');
+    routeLayer=L.polyline(fullPath,{color:routeColor,weight:5,opacity:0.95,lineJoin:'round'}).addTo(map);
+    map.fitBounds(routeLayer.getBounds(),{padding:[40,40]});
     updateBboxPreview();
 
-    const elapsed = ((performance.now()-t0)/1000).toFixed(2);
-    const distKm  = (dist[endId]/1000).toFixed(3);
+    const elapsed=((performance.now()-t0)/1000).toFixed(2);
+    const distKm=(totalDist/1000).toFixed(3);
 
     hideStatus();
-    showStats({
-      dist:  distKm + ' km',
-      nodes: totalNodes.toLocaleString(),
-      edges: Math.round(edgeCount/2).toLocaleString(),
-      time:  elapsed + 's',
-      path:  path.length.toLocaleString()
-    });
+    showStats({dist:distKm+' km', nodes:totalNodes.toLocaleString(), edges:Math.round(edgeCount/2).toLocaleString(), time:elapsed+'s', path:fullPath.length.toLocaleString()});
 
-    // Show navigation button now that we have a route
+    // Build replay frames
+    if (allEdgeLog.length > 0) {
+      vizNodes=nodes; // needed for replay rendering
+      const frames=buildReplayFrames(nodes, allEdgeLog, allPathLog);
+      showReplayPanel(frames, totalNodes);
+    }
+
+    // Show post-route actions
+    document.getElementById('post-route-divider').style.display = 'block';
+    document.getElementById('post-route-actions').style.display = 'flex';
+
+    // Save to recent routes
+    saveRecentRoute(pointA, pointB, distKm, transportMode);
+
     showNavButton();
 
-    // Flash success message
-    const overlay = document.getElementById('map-overlay');
-    overlay.textContent = '✅ Path found!';
-    overlay.style.background = 'rgba(0,255,136,0.2)';
-    overlay.style.borderColor = '#00ff88';
-    overlay.style.opacity = '1';
-    setTimeout(() => {
-      overlay.style.opacity = '0';
-      setTimeout(() => {
-        overlay.style.background = '';
-        overlay.style.borderColor = '';
-      }, 1000);
-    }, 2000);
+    // Flash success
+    const overlay=document.getElementById('map-overlay');
+    overlay.textContent='✅ Path found!';
+    overlay.style.background='rgba(0,255,136,0.2)';
+    overlay.style.borderColor='#00ff88';
+    overlay.style.opacity='1';
+    setTimeout(()=>{overlay.style.opacity='0';setTimeout(()=>{overlay.style.background='';overlay.style.borderColor='';},1000);},2000);
 
-  } catch(e) { 
-    hideStatus(); 
-    showError(e.message || String(e));
-    console.error('Route finding error:', e);
+  } catch(e) { hideStatus(); showError(e.message||String(e)); console.error(e); }
+  document.getElementById('run-btn').disabled=false;
+}
+
+function handleDisconnected(dist, nodes, endId) {
+  if (ctx) ctx.clearRect(0,0,canvas.width,canvas.height);
+  vizNodes=null; vizNodeCoords=[]; vizEdges=[]; vizBestPath=null;
+  const reachable=new Set(Object.keys(dist));
+  const endNode=nodes[endId];
+  let frontierNodes=[];
+  for (const id of reachable) { const n=nodes[id]; if(!n)continue; frontierNodes.push({id,lat:n.lat,lng:n.lng,distToEnd:haversine(n,endNode)}); }
+  frontierNodes.sort((a,b)=>a.distToEnd-b.distToEnd);
+  const topFrontier=frontierNodes.slice(0,5);
+  const project=(lat,lng)=>map.latLngToContainerPoint([lat,lng]);
+  if (ctx) {
+    ctx.fillStyle='rgba(0,150,255,0.25)';
+    for (const id of reachable) { const n=nodes[id]; if(!n)continue; const pt=project(n.lat,n.lng); ctx.beginPath(); ctx.arc(pt.x,pt.y,2,0,Math.PI*2); ctx.fill(); }
+    ctx.strokeStyle='#ff9900'; ctx.lineWidth=2;
+    for (const fn of topFrontier) { const pt=project(fn.lat,fn.lng); ctx.beginPath(); ctx.arc(pt.x,pt.y,7,0,Math.PI*2); ctx.stroke(); }
+  }
+  const closest=topFrontier[0];
+  if (closest) {
+    diagnosticLayers.push(L.circleMarker([closest.lat,closest.lng],{radius:10,color:'#ff9900',fillColor:'#ff9900',fillOpacity:0.5,weight:3}).bindPopup(`<b>🚧 Frontier</b><br>Gap: ${closest.distToEnd.toFixed(0)} m`).addTo(map).openPopup());
+    diagnosticLayers.push(L.polyline([[closest.lat,closest.lng],[endNode.lat,endNode.lng]],{color:'#ff3366',weight:3,dashArray:'8 6',opacity:0.85}).bindTooltip('⛔ Disconnected gap').addTo(map));
+  }
+  diagnosticLayers.push(L.circleMarker([endNode.lat,endNode.lng],{radius:10,color:'#ff3366',fillColor:'#ff3366',fillOpacity:0.35,weight:3}).bindPopup('<b>🔴 Destination unreachable</b>').addTo(map));
+  if (closest) map.fitBounds([[closest.lat,closest.lng],[endNode.lat,endNode.lng]],{padding:[80,80]});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GPX EXPORT
+// ═══════════════════════════════════════════════════════════════════════════
+function exportGPX() {
+  if (!routeLayer) { showError('No route to export.'); return; }
+  const coords = routeLayer.getLatLngs();
+  const now = new Date().toISOString();
+  const trkpts = coords.map(ll => `    <trkpt lat="${ll.lat.toFixed(6)}" lon="${ll.lng.toFixed(6)}"></trkpt>`).join('\n');
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="TrueRoute" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><time>${now}</time></metadata>
+  <trk>
+    <name>TrueRoute ${transportMode} route</name>
+    <trkseg>
+${trkpts}
+    </trkseg>
+  </trk>
+</gpx>`;
+  const blob = new Blob([gpx], {type:'application/gpx+xml'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=`trueroute_${Date.now()}.gpx`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SHARE ROUTE LINK
+// ═══════════════════════════════════════════════════════════════════════════
+function shareRoute() {
+  if (!pointA||!pointB) return;
+  const params = new URLSearchParams({
+    alat: pointA.lat.toFixed(6), alng: pointA.lng.toFixed(6),
+    blat: pointB.lat.toFixed(6), blng: pointB.lng.toFixed(6),
+    mode: transportMode,
+    algo: algorithmMode
+  });
+  if (waypoints.length) {
+    params.set('wps', waypoints.map(wp=>`${wp.lat.toFixed(6)},${wp.lng.toFixed(6)}`).join('|'));
+  }
+  const url = `${location.origin}${location.pathname}#${params.toString()}`;
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('✅ Link copied to clipboard!');
+  }).catch(() => {
+    // Fallback: show in a prompt
+    prompt('Copy this link:', url);
+  });
+}
+
+function loadFromUrl() {
+  const hash = location.hash.slice(1);
+  if (!hash) return;
+  try {
+    const params = new URLSearchParams(hash);
+    const alat=params.get('alat'), alng=params.get('alng');
+    const blat=params.get('blat'), blng=params.get('blng');
+    if (alat&&alng) setPointA(parseFloat(alat),parseFloat(alng));
+    if (blat&&blng) setPointB(parseFloat(blat),parseFloat(blng));
+    if (params.get('mode')) setTransport(params.get('mode'));
+    if (params.get('algo')) setAlgo(params.get('algo'));
+    const wps=params.get('wps');
+    if (wps) {
+      const coords=wps.split('|').map(s=>{const[lat,lng]=s.split(',');return{lat:parseFloat(lat),lng:parseFloat(lng)};});
+      setWaypointCoords(coords);
+    }
+    if (alat&&alng&&blat&&blng) {
+      map.fitBounds([[parseFloat(alat),parseFloat(alng)],[parseFloat(blat),parseFloat(blng)]],{padding:[60,60]});
+      clickStage='done';
+      document.getElementById('map-overlay').style.display='none';
+      document.getElementById('click-swap-row').style.display='block';
+      showToast('📍 Route loaded from link');
+    }
+  } catch(e) { console.warn('Could not parse URL params:', e); }
+}
+
+function showToast(msg) {
+  const el=document.getElementById('share-toast');
+  el.textContent=msg; el.style.display='block';
+  setTimeout(()=>{ el.style.display='none'; },3000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RECENT ROUTES
+// ═══════════════════════════════════════════════════════════════════════════
+function saveRecentRoute(a, b, distKm, mode) {
+  try {
+    const routes = JSON.parse(localStorage.getItem('trueroute_recent')||'[]');
+    const entry = {
+      id: Date.now(),
+      alat:a.lat.toFixed(5), alng:a.lng.toFixed(5),
+      blat:b.lat.toFixed(5), blng:b.lng.toFixed(5),
+      distKm, mode,
+      ts: Date.now()
+    };
+    routes.unshift(entry);
+    const trimmed = routes.slice(0, 5); // keep last 5
+    localStorage.setItem('trueroute_recent', JSON.stringify(trimmed));
+    renderRecentRoutes();
+  } catch(e) { /* localStorage may be blocked */ }
+}
+
+function renderRecentRoutes() {
+  const container = document.getElementById('recent-routes-list');
+  let routes = [];
+  try { routes = JSON.parse(localStorage.getItem('trueroute_recent')||'[]'); } catch(e) {}
+  if (!routes.length) {
+    container.innerHTML = '<div id="no-recent" class="field-hint">No recent routes yet.</div>';
+    return;
+  }
+  container.innerHTML = routes.map(r => {
+    const modeEmoji = r.mode==='bike'?'🚲':r.mode==='walk'?'🚶':'🚗';
+    const date = new Date(r.ts).toLocaleDateString();
+    return `<div class="recent-route-item" onclick="loadRecentRoute(${r.id})">
+      <div class="recent-route-info">
+        <div class="recent-route-name">${modeEmoji} ${r.distKm} km</div>
+        <div class="recent-route-meta">${parseFloat(r.alat).toFixed(3)},${parseFloat(r.alng).toFixed(3)} → ${parseFloat(r.blat).toFixed(3)},${parseFloat(r.blng).toFixed(3)} · ${date}</div>
+      </div>
+      <button class="recent-route-del" onclick="deleteRecentRoute(event,${r.id})" title="Remove">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function loadRecentRoute(id) {
+  try {
+    const routes = JSON.parse(localStorage.getItem('trueroute_recent')||'[]');
+    const r = routes.find(x=>x.id===id);
+    if (!r) return;
+    setPointA(parseFloat(r.alat),parseFloat(r.alng));
+    setPointB(parseFloat(r.blat),parseFloat(r.blng));
+    setTransport(r.mode);
+    map.fitBounds([[parseFloat(r.alat),parseFloat(r.alng)],[parseFloat(r.blat),parseFloat(r.blng)]],{padding:[60,60]});
+    clickStage='done';
+    document.getElementById('map-overlay').style.display='none';
+    document.getElementById('click-swap-row').style.display='block';
+  } catch(e) {}
+}
+
+function deleteRecentRoute(e, id) {
+  e.stopPropagation();
+  try {
+    let routes = JSON.parse(localStorage.getItem('trueroute_recent')||'[]');
+    routes = routes.filter(r=>r.id!==id);
+    localStorage.setItem('trueroute_recent', JSON.stringify(routes));
+    renderRecentRoutes();
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ELEVATION PROFILE
+// ═══════════════════════════════════════════════════════════════════════════
+async function fetchElevation() {
+  if (!routeLayer) return;
+  const btn = document.getElementById('elev-btn');
+  btn.textContent = '⏳ Loading elevation…';
+  btn.disabled = true;
+
+  const coords = routeLayer.getLatLngs();
+  // Sample up to 100 points evenly
+  const maxSamples = 100;
+  const step = Math.max(1, Math.floor(coords.length / maxSamples));
+  const sampled = [];
+  for (let i = 0; i < coords.length; i += step) sampled.push(coords[i]);
+  if (sampled[sampled.length-1] !== coords[coords.length-1]) sampled.push(coords[coords.length-1]);
+
+  try {
+    // Use Open-Elevation API (free, no key)
+    const locations = sampled.map(ll=>({latitude:ll.lat.toFixed(5),longitude:ll.lng.toFixed(5)}));
+    const res = await fetch('https://api.open-elevation.com/api/v1/lookup', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({locations})
+    });
+    if (!res.ok) throw new Error('Elevation API returned '+res.status);
+    const data = await res.json();
+    const elevations = data.results.map(r=>r.elevation);
+    drawElevationProfile(elevations, sampled);
+  } catch(e) {
+    showError('Elevation fetch failed: '+e.message+'. Try again or check your connection.');
   }
 
-  document.getElementById('run-btn').disabled = false;
+  btn.textContent = '📈 Elevation Profile';
+  btn.disabled = false;
+}
+
+function drawElevationProfile(elevations, coords) {
+  const panel=document.getElementById('elev-panel');
+  panel.classList.add('visible');
+  const c=document.getElementById('elev-canvas-draw');
+  const w=panel.clientWidth-28, h=70;
+  c.width=w; c.height=h;
+  const ctx2=c.getContext('2d');
+
+  const minE=Math.min(...elevations), maxE=Math.max(...elevations);
+  const range=maxE-minE||1;
+  const gain=elevations.reduce((acc,e,i)=>i>0&&e>elevations[i-1]?acc+(e-elevations[i-1]):acc,0);
+  const loss=elevations.reduce((acc,e,i)=>i>0&&e<elevations[i-1]?acc+(elevations[i-1]-e):acc,0);
+
+  document.getElementById('elev-stats').textContent =
+    `↑ ${gain.toFixed(0)}m  ↓ ${loss.toFixed(0)}m  min ${minE.toFixed(0)}m  max ${maxE.toFixed(0)}m`;
+
+  // Draw gradient fill
+  const grad=ctx2.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,'rgba(68,136,255,0.6)');
+  grad.addColorStop(1,'rgba(68,136,255,0.05)');
+  ctx2.fillStyle=grad;
+  ctx2.beginPath();
+  ctx2.moveTo(0,h);
+  elevations.forEach((e,i)=>{
+    const x=(i/(elevations.length-1))*w;
+    const y=h-((e-minE)/range)*(h-8)-4;
+    if(i===0)ctx2.lineTo(x,y); else ctx2.lineTo(x,y);
+  });
+  ctx2.lineTo(w,h); ctx2.closePath(); ctx2.fill();
+
+  // Draw line
+  ctx2.strokeStyle='#4488ff'; ctx2.lineWidth=1.5; ctx2.beginPath();
+  elevations.forEach((e,i)=>{
+    const x=(i/(elevations.length-1))*w;
+    const y=h-((e-minE)/range)*(h-8)-4;
+    if(i===0)ctx2.moveTo(x,y); else ctx2.lineTo(x,y);
+  });
+  ctx2.stroke();
+
+  // Min/max labels
+  ctx2.fillStyle='rgba(224,224,240,0.7)'; ctx2.font='9px Space Mono';
+  ctx2.fillText(maxE.toFixed(0)+'m',4,12);
+  ctx2.fillText(minE.toFixed(0)+'m',4,h-3);
+}
+
+function closeElevation() {
+  document.getElementById('elev-panel').classList.remove('visible');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // UI HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
-function setStatus(text, pct) {
+function setStatus(text,pct) {
   document.getElementById('status-box').classList.add('visible');
-  document.getElementById('status-text').textContent = text;
-  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('status-text').textContent=text;
+  document.getElementById('progress-fill').style.width=pct+'%';
 }
 function hideStatus() { document.getElementById('status-box').classList.remove('visible'); }
-function showError(msg) {
-  const el = document.getElementById('error-box');
-  el.textContent = msg; 
-  el.classList.toggle('visible', !!msg);
-}
+function showError(msg) { const el=document.getElementById('error-box'); el.textContent=msg; el.classList.toggle('visible',!!msg); }
 function showStats(s) {
   document.getElementById('stats-box').classList.add('visible');
-  document.getElementById('stat-dist').textContent  = s.dist;
-  document.getElementById('stat-nodes').textContent = s.nodes;
-  document.getElementById('stat-edges').textContent = s.edges;
-  document.getElementById('stat-time').textContent  = s.time;
-  document.getElementById('stat-path').textContent  = s.path;
+  document.getElementById('stat-dist').textContent=s.dist;
+  document.getElementById('stat-nodes').textContent=s.nodes;
+  document.getElementById('stat-edges').textContent=s.edges;
+  document.getElementById('stat-time').textContent=s.time;
+  document.getElementById('stat-path').textContent=s.path;
 }
 function clearRoute() {
-  if (routeLayer) { routeLayer.remove(); routeLayer = null; }
-  map.eachLayer(l => { if (l instanceof L.CircleMarker) l.remove(); });
-  diagnosticLayers.forEach(l => l.remove());
-  diagnosticLayers = [];
+  if (routeLayer){routeLayer.remove();routeLayer=null;}
+  map.eachLayer(l=>{if(l instanceof L.CircleMarker)l.remove();});
+  diagnosticLayers.forEach(l=>l.remove()); diagnosticLayers=[];
   document.getElementById('nav-btn').classList.remove('nav-btn-ready');
+  document.getElementById('post-route-actions').style.display='none';
+  document.getElementById('post-route-divider').style.display='none';
+  document.getElementById('replay-panel').classList.remove('visible');
+  if(replayPlaying)toggleReplay();
 }
 function clearAll() {
-  clearRoute(); 
-  clearCanvas();
-  if (markerA) { markerA.remove(); markerA = null; }
-  if (markerB) { markerB.remove(); markerB = null; }
-  if (bboxRectLayer) { bboxRectLayer.remove(); bboxRectLayer = null; }
-  pointA = null; 
-  pointB = null; 
-  clickStage = 'A';
-  document.getElementById('points-display').style.display = 'none';
+  clearRoute(); clearCanvas();
+  if(markerA){markerA.remove();markerA=null;}
+  if(markerB){markerB.remove();markerB=null;}
+  waypointMarkers.forEach(m=>m.remove()); waypointMarkers=[]; waypoints=[];
+  if(bboxRectLayer){bboxRectLayer.remove();bboxRectLayer=null;}
+  pointA=null; pointB=null; clickStage='A';
+  document.getElementById('points-display').style.display='none';
   document.getElementById('stats-box').classList.remove('visible');
   document.getElementById('status-box').classList.remove('visible');
+  document.getElementById('click-swap-row').style.display='none';
   showError('');
-  document.getElementById('run-btn').disabled = true;
-  document.getElementById('nav-btn').style.display = ''; // reset to CSS default (hidden on desktop)
-  document.getElementById('map-overlay').style.display = 'block';
+  document.getElementById('run-btn').disabled=true;
+  document.getElementById('nav-btn').style.display='';
+  document.getElementById('map-overlay').style.display='block';
   updateOverlay('📍 Click map to set ORIGIN');
+  closeElevation();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GPS & NAVIGATION STATE
 // ═══════════════════════════════════════════════════════════════════════════
-let gpsWatchId = null;
-let gpsMarker = null;
-let gpsHeadingMarker = null;
-let gpsPosition = null;       // { lat, lng, speed, heading }
-let gpsEnabled = false;
+let gpsWatchId=null, gpsMarker=null, gpsPosition=null, gpsEnabled=false;
+let navActive=false, navRoute=null, navStepIndex=0, navTurns=[], navWakeLock=null;
+let rerouteTimeout=null, lastRerouteTime=0, navTotalDistM=0;
 
-let navActive = false;
-let navRoute = null;          // [[lat,lng], ...] full route path
-let navStepIndex = 0;         // which step we're currently heading to
-let navTurns = [];            // [{lat,lng,instruction,arrow}, ...]
-let navWakeLock = null;
-let rerouteTimeout = null;
-let lastRerouteTime = 0;
-let navTotalDistM = 0;        // total route distance in metres
-
-// ═══════════════════════════════════════════════════════════════════════════
-// GPS FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════════
-function toggleGPS() {
-  if (gpsEnabled) {
-    stopGPS();
-  } else {
-    startGPS();
-  }
-}
-
+function toggleGPS() { gpsEnabled?stopGPS():startGPS(); }
 function startGPS() {
-  if (!navigator.geolocation) {
-    showError('GPS not available in this browser.');
-    return;
-  }
-  const btn = document.getElementById('gps-btn');
-  btn.textContent = '⏳ Getting location…';
-
+  if (!navigator.geolocation){showError('GPS not available in this browser.');return;}
+  const btn=document.getElementById('gps-btn');
+  btn.textContent='⏳ Getting location…';
   navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      gpsEnabled = true;
-      btn.textContent = '📡 GPS Active — Set as Origin';
+    pos=>{
+      gpsEnabled=true;
+      btn.textContent='📡 GPS Active — Set as Origin';
       btn.classList.add('active');
       updateGPSPosition(pos);
-
-      // Offer to set as origin
-      const { latitude: lat, longitude: lng } = pos.coords;
-      setPointA(lat, lng);
-      map.setView([lat, lng], 15);
+      const {latitude:lat,longitude:lng}=pos.coords;
+      setPointA(lat,lng);
+      map.setView([lat,lng],15);
       updateOverlay('📍 GPS origin set! Click map for destination.');
-      document.getElementById('map-overlay').style.display = 'block';
-      clickStage = 'B';
-
-      // Start watching position
-      gpsWatchId = navigator.geolocation.watchPosition(
-        updateGPSPosition,
-        (e) => console.warn('GPS error:', e.message),
-        { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
-      );
+      document.getElementById('map-overlay').style.display='block';
+      clickStage='B';
+      gpsWatchId=navigator.geolocation.watchPosition(updateGPSPosition,e=>console.warn('GPS:',e.message),{enableHighAccuracy:true,maximumAge:2000,timeout:10000});
     },
-    (err) => {
-      btn.textContent = '📍 Use My GPS Location';
-      if (err.code === 1) showError('GPS permission denied. Please allow location access in your browser settings.');
-      else showError('Could not get GPS location: ' + err.message);
+    err=>{
+      btn.textContent='📍 Use My GPS Location';
+      if(err.code===1)showError('GPS permission denied.');
+      else showError('Could not get GPS: '+err.message);
     },
-    { enableHighAccuracy: true, timeout: 15000 }
+    {enableHighAccuracy:true,timeout:15000}
   );
 }
-
 function stopGPS() {
-  if (gpsWatchId !== null) {
-    navigator.geolocation.clearWatch(gpsWatchId);
-    gpsWatchId = null;
-  }
-  gpsEnabled = false;
-  if (gpsMarker) { gpsMarker.remove(); gpsMarker = null; }
-  const btn = document.getElementById('gps-btn');
-  btn.textContent = '📍 Use My GPS Location';
+  if(gpsWatchId!==null){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null;}
+  gpsEnabled=false;
+  if(gpsMarker){gpsMarker.remove();gpsMarker=null;}
+  const btn=document.getElementById('gps-btn');
+  btn.textContent='📍 Use My GPS Location';
   btn.classList.remove('active');
+  document.getElementById('compass-wrap').classList.remove('visible');
 }
-
 function updateGPSPosition(pos) {
-  const lat = pos.coords.latitude;
-  const lng = pos.coords.longitude;
-  const speed = pos.coords.speed; // m/s or null
-  const heading = pos.coords.heading; // degrees or null
-
-  gpsPosition = { lat, lng, speed, heading };
-
-  // Update/create GPS marker
+  const lat=pos.coords.latitude, lng=pos.coords.longitude;
+  const speed=pos.coords.speed, heading=pos.coords.heading;
+  gpsPosition={lat,lng,speed,heading};
   if (!gpsMarker) {
-    gpsMarker = L.marker([lat, lng], {
-      icon: L.divIcon({
-        className: '',
-        html: `<div class="gps-dot-outer"><div class="gps-dot-inner"></div></div>`,
-        iconSize: [22, 22],
-        iconAnchor: [11, 11]
-      }),
-      zIndexOffset: 1000
-    }).addTo(map);
-  } else {
-    gpsMarker.setLatLng([lat, lng]);
-  }
+    gpsMarker=L.marker([lat,lng],{icon:L.divIcon({className:'',html:`<div class="gps-dot-outer"><div class="gps-dot-inner"></div></div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:1000}).addTo(map);
+  } else { gpsMarker.setLatLng([lat,lng]); }
 
-  // Update navigation if active
-  if (navActive && navRoute) {
-    updateNavigation();
-  }
+  // Update compass
+  if (heading != null) updateCompassBearing(heading);
+  if (navActive&&navRoute) updateNavigation();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// NAVIGATION FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════════
-function toggleNavigation() {
-  if (navActive) {
-    stopNavigation();
-  } else {
-    startNavigation();
-  }
-}
-
+// ── Navigation ────────────────────────────────────
+function toggleNavigation() { navActive?stopNavigation():startNavigation(); }
 function startNavigation() {
-  if (!routeLayer) {
-    showError('Please find a route first before starting navigation.');
-    return;
-  }
-  if (!gpsEnabled || !gpsPosition) {
-    // Try to start GPS first
-    showError('Please enable GPS first (click "Use My GPS Location").');
-    return;
-  }
-
-  // Get route coordinates from the layer
-  navRoute = routeLayer.getLatLngs().map(ll => [ll.lat, ll.lng]);
-  if (navRoute.length < 2) {
-    showError('Route too short for navigation.');
-    return;
-  }
-
-  // Compute total route distance
-  navTotalDistM = 0;
-  for (let i = 0; i < navRoute.length - 1; i++) {
-    navTotalDistM += haversineCoords(navRoute[i][0], navRoute[i][1], navRoute[i+1][0], navRoute[i+1][1]);
-  }
-
-  // Generate turn-by-turn instructions
-  navTurns = generateTurns(navRoute);
-  navStepIndex = 0;
-  navActive = true;
-
-  // Collapse settings panel on mobile
+  if (!routeLayer){showError('Please find a route first.');return;}
+  if (!gpsEnabled||!gpsPosition){showError('Please enable GPS first.');return;}
+  navRoute=routeLayer.getLatLngs().map(ll=>[ll.lat,ll.lng]);
+  if (navRoute.length<2){showError('Route too short.');return;}
+  navTotalDistM=0;
+  for(let i=0;i<navRoute.length-1;i++) navTotalDistM+=haversineCoords(navRoute[i][0],navRoute[i][1],navRoute[i+1][0],navRoute[i+1][1]);
+  navTurns=generateTurns(navRoute); navStepIndex=0; navActive=true;
   document.body.classList.add('nav-active');
-
-  // On mobile: move HUD out of map-wrap to body so map fills space above it
-  const hud = document.getElementById('nav-hud');
-  if (window.matchMedia('(max-width: 700px)').matches) {
-    document.body.appendChild(hud);
-  }
-
-  // Update UI
-  const navBtn = document.getElementById('nav-btn');
-  navBtn.textContent = '🛑 Stop Navigation';
-  navBtn.classList.add('stop');
+  const hud=document.getElementById('nav-hud');
+  if(window.matchMedia('(max-width:700px)').matches) document.body.appendChild(hud);
+  const navBtn=document.getElementById('nav-btn');
+  navBtn.textContent='🛑 Stop Navigation'; navBtn.classList.add('stop');
   hud.classList.add('visible');
-
-  // Let layout settle then tell Leaflet the map size changed, then re-center with offset
-  setTimeout(() => {
-   map.invalidateSize();
-   if (gpsPosition) {
-     const targetLL = getOffsetCenter(gpsPosition.lat, gpsPosition.lng);
-     map.setView(targetLL, 17);
-   }
-  }, 300);
-
-  // Keep screen awake
+  setTimeout(()=>{ map.invalidateSize(); if(gpsPosition){const tll=getOffsetCenter(gpsPosition.lat,gpsPosition.lng);map.setView(tll,17);} },300);
   requestWakeLock();
-
   updateNavHUD();
 }
-
 function stopNavigation() {
-  navActive = false;
-  navRoute = null;
-  navTurns = [];
-  navStepIndex = 0;
-  navTotalDistM = 0;
-
+  navActive=false; navRoute=null; navTurns=[]; navStepIndex=0; navTotalDistM=0;
   document.body.classList.remove('nav-active');
-  const hud = document.getElementById('nav-hud');
+  const hud=document.getElementById('nav-hud');
   hud.classList.remove('visible');
-  // Move HUD back inside map-wrap if it was pulled out
-  const mapWrap = document.getElementById('map-wrap');
-  if (hud.parentElement !== mapWrap) {
-    mapWrap.appendChild(hud);
-  }
+  const mapWrap=document.getElementById('map-wrap');
+  if(hud.parentElement!==mapWrap) mapWrap.appendChild(hud);
   document.documentElement.style.removeProperty('--hud-h');
   map.invalidateSize();
-  const navBtn = document.getElementById('nav-btn');
-  navBtn.textContent = '🧭 Start Navigation';
-  navBtn.classList.remove('stop');
-
-  if (navWakeLock) {
-    navWakeLock.release();
-    navWakeLock = null;
-  }
-  if (rerouteTimeout) {
-    clearTimeout(rerouteTimeout);
-    rerouteTimeout = null;
-  }
-  document.getElementById('reroute-banner').style.display = 'none';
+  const navBtn=document.getElementById('nav-btn');
+  navBtn.textContent='🧭 Start Navigation'; navBtn.classList.remove('stop');
+  if(navWakeLock){navWakeLock.release();navWakeLock=null;}
+  if(rerouteTimeout){clearTimeout(rerouteTimeout);rerouteTimeout=null;}
+  document.getElementById('reroute-banner').style.display='none';
 }
-
 function updateNavigation() {
-  if (!navActive || !navRoute || !gpsPosition) return;
-
-  const { lat, lng } = gpsPosition;
-
-  // Find closest point on route and advance step index
-  const { closestIdx, distToRoute } = findClosestRoutePoint(lat, lng, navRoute);
-
-  // Check if off-route (more than 40m away)
-  if (distToRoute > 40) {
-    scheduleReroute();
-  } else {
-    // Advance step index to current position
-    if (closestIdx > navStepIndex) {
-      navStepIndex = closestIdx;
-    }
+  if(!navActive||!navRoute||!gpsPosition) return;
+  const {lat,lng}=gpsPosition;
+  const {closestIdx,distToRoute}=findClosestRoutePoint(lat,lng,navRoute);
+  if (distToRoute>40) { scheduleReroute(); }
+  else {
+    if(closestIdx>navStepIndex) navStepIndex=closestIdx;
     updateNavHUD();
-
-    // Follow mode: center map but offset upward so GPS dot sits in the
-    // visible portion of the map (above the HUD panel)
-    const targetLL = getOffsetCenter(lat, lng);
-    map.setView(targetLL, map.getZoom(), { animate: true, duration: 0.5 });
+    const targetLL=getOffsetCenter(lat,lng);
+    map.setView(targetLL,map.getZoom(),{animate:true,duration:0.5});
   }
 }
-
-// Returns a LatLng shifted so that [lat,lng] appears ~65% down from the
-// top of the *visible* map area (i.e. well below centre, above the HUD).
-function getOffsetCenter(lat, lng) {
-  const hud = document.getElementById('nav-hud');
-  const mapWrap = document.getElementById('map-wrap');
-  if (!hud || !hud.classList.contains('visible')) return L.latLng(lat, lng);
-
-  // How many px does the HUD take up?
-  const hudH = hud.getBoundingClientRect().height;
-  const mapH = mapWrap.getBoundingClientRect().height;
-  const visibleH = mapH - hudH;
-
-  // We want the GPS dot to sit 65% down from the top of the visible area
-  // i.e. (visibleH * 0.65) px from the top of the map container.
-  // Currently setView puts it at mapH/2. Shift = mapH/2 - visibleH*0.65
-  const targetY = visibleH * 0.8;   // desired px from top of map
-  const currentY = mapH / 2;         // where setView would put it
-  const offsetPx = currentY - targetY; // negative = need to shift center north (up)
-
-  if (Math.abs(offsetPx) < 5) return L.latLng(lat, lng);
-
-  // Convert pixel offset to lat degrees at current zoom
-  const containerPt = map.latLngToContainerPoint(L.latLng(lat, lng));
-  const shiftedPt = L.point(containerPt.x, containerPt.y + offsetPx);
+function getOffsetCenter(lat,lng) {
+  const hud=document.getElementById('nav-hud');
+  const mapWrap=document.getElementById('map-wrap');
+  if(!hud||!hud.classList.contains('visible')) return L.latLng(lat,lng);
+  const hudH=hud.getBoundingClientRect().height;
+  const mapH=mapWrap.getBoundingClientRect().height;
+  const visibleH=mapH-hudH;
+  const targetY=visibleH*0.8, currentY=mapH/2;
+  const offsetPx=currentY-targetY;
+  if(Math.abs(offsetPx)<5) return L.latLng(lat,lng);
+  const containerPt=map.latLngToContainerPoint(L.latLng(lat,lng));
+  const shiftedPt=L.point(containerPt.x,containerPt.y+offsetPx);
   return map.containerPointToLatLng(shiftedPt);
 }
-
-function findClosestRoutePoint(lat, lng, route) {
-  let minDist = Infinity;
-  let closestIdx = 0;
-  for (let i = 0; i < route.length; i++) {
-    const d = haversineCoords(lat, lng, route[i][0], route[i][1]);
-    if (d < minDist) {
-      minDist = d;
-      closestIdx = i;
-    }
-  }
-  return { closestIdx, distToRoute: minDist };
+function findClosestRoutePoint(lat,lng,route) {
+  let minDist=Infinity, closestIdx=0;
+  for(let i=0;i<route.length;i++){const d=haversineCoords(lat,lng,route[i][0],route[i][1]);if(d<minDist){minDist=d;closestIdx=i;}}
+  return{closestIdx,distToRoute:minDist};
 }
-
 function scheduleReroute() {
-  const now = Date.now();
-  if (now - lastRerouteTime < 8000) return; // Don't reroute more than once per 8s
-  if (rerouteTimeout) return;
-
-  rerouteTimeout = setTimeout(async () => {
-    rerouteTimeout = null;
-    if (!navActive || !gpsPosition) return;
-    lastRerouteTime = Date.now();
-
-    const banner = document.getElementById('reroute-banner');
-    banner.style.display = 'block';
-
-    // Set new origin to GPS position and keep destination
-    const dest = pointB;
-    setPointA(gpsPosition.lat, gpsPosition.lng);
-    pointB = dest;
-
+  const now=Date.now();
+  if(now-lastRerouteTime<8000||rerouteTimeout) return;
+  rerouteTimeout=setTimeout(async()=>{
+    rerouteTimeout=null;
+    if(!navActive||!gpsPosition) return;
+    lastRerouteTime=Date.now();
+    const banner=document.getElementById('reroute-banner');
+    banner.style.display='block';
+    const dest=pointB;
+    setPointA(gpsPosition.lat,gpsPosition.lng);
+    pointB=dest;
     try {
       await findRoute();
-      if (routeLayer) {
-        navRoute = routeLayer.getLatLngs().map(ll => [ll.lat, ll.lng]);
-        navTurns = generateTurns(navRoute);
-        navStepIndex = 0;
-      }
-    } catch(e) {
-      console.warn('Reroute failed:', e);
-    }
-
-    banner.style.display = 'none';
-  }, 3000); // Wait 3s off-route before rerouting
+      if(routeLayer){navRoute=routeLayer.getLatLngs().map(ll=>[ll.lat,ll.lng]);navTurns=generateTurns(navRoute);navStepIndex=0;}
+    } catch(e){console.warn('Reroute failed:',e);}
+    banner.style.display='none';
+  },3000);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TURN GENERATION
-// ═══════════════════════════════════════════════════════════════════════════
+// ── Turn generation ───────────────────────────────
 function generateTurns(route) {
-  if (route.length < 3) return [];
-  const turns = [];
-
-  // Always add a start instruction
-  turns.push({
-    routeIdx: 0,
-    arrow: '⬆️',
-    instruction: 'Head towards destination',
-    lat: route[0][0], lng: route[0][1]
-  });
-
-  for (let i = 1; i < route.length - 1; i++) {
-    const prev = route[i - 1];
-    const curr = route[i];
-    const next = route[i + 1];
-
-    const bearing1 = getBearing(prev[0], prev[1], curr[0], curr[1]);
-    const bearing2 = getBearing(curr[0], curr[1], next[0], next[1]);
-    const turn = bearingDiff(bearing1, bearing2);
-
-    // Only register as a turn if it's more than 20 degrees
-    if (Math.abs(turn) > 20) {
-      // Suppress if last turn was very close (within 30m)
-      const lastTurn = turns[turns.length - 1];
-      const distFromLast = haversineCoords(lastTurn.lat, lastTurn.lng, curr[0], curr[1]);
-      if (distFromLast < 30) continue;
-
-      let arrow, instruction;
-      if (turn > 120)       { arrow = '↩️'; instruction = 'Make a U-turn'; }
-      else if (turn > 60)   { arrow = '↰'; instruction = 'Turn sharp left'; }
-      else if (turn > 20)   { arrow = '⬅️'; instruction = 'Turn left'; }
-      else if (turn > 5)    { arrow = '↖️'; instruction = 'Keep left'; }
-      else if (turn < -120) { arrow = '↩️'; instruction = 'Make a U-turn'; }
-      else if (turn < -60)  { arrow = '↱'; instruction = 'Turn sharp right'; }
-      else if (turn < -20)  { arrow = '➡️'; instruction = 'Turn right'; }
-      else if (turn < -5)   { arrow = '↗️'; instruction = 'Keep right'; }
-      else                  { arrow = '⬆️'; instruction = 'Continue straight'; }
-
-      turns.push({ routeIdx: i, arrow, instruction, lat: curr[0], lng: curr[1] });
+  if(route.length<3) return [];
+  const turns=[{routeIdx:0,arrow:'⬆️',instruction:'Head towards destination',lat:route[0][0],lng:route[0][1]}];
+  for(let i=1;i<route.length-1;i++){
+    const prev=route[i-1],curr=route[i],next=route[i+1];
+    const b1=getBearing(prev[0],prev[1],curr[0],curr[1]);
+    const b2=getBearing(curr[0],curr[1],next[0],next[1]);
+    const turn=bearingDiff(b1,b2);
+    if(Math.abs(turn)>20){
+      const last=turns[turns.length-1];
+      if(haversineCoords(last.lat,last.lng,curr[0],curr[1])<30) continue;
+      let arrow,instruction;
+      if(turn>120)        {arrow='↩️';instruction='Make a U-turn';}
+      else if(turn>60)    {arrow='↰';instruction='Turn sharp left';}
+      else if(turn>20)    {arrow='⬅️';instruction='Turn left';}
+      else if(turn>5)     {arrow='↖️';instruction='Keep left';}
+      else if(turn<-120)  {arrow='↩️';instruction='Make a U-turn';}
+      else if(turn<-60)   {arrow='↱';instruction='Turn sharp right';}
+      else if(turn<-20)   {arrow='➡️';instruction='Turn right';}
+      else if(turn<-5)    {arrow='↗️';instruction='Keep right';}
+      else                {arrow='⬆️';instruction='Continue straight';}
+      turns.push({routeIdx:i,arrow,instruction,lat:curr[0],lng:curr[1]});
     }
   }
-
-  // Add destination
-  const dest = route[route.length - 1];
-  turns.push({
-    routeIdx: route.length - 1,
-    arrow: '🏁',
-    instruction: 'You have arrived at your destination',
-    lat: dest[0], lng: dest[1]
-  });
-
+  const dest=route[route.length-1];
+  turns.push({routeIdx:route.length-1,arrow:'🏁',instruction:'You have arrived at your destination',lat:dest[0],lng:dest[1]});
   return turns;
 }
+function getBearing(lat1,lng1,lat2,lng2){const dLng=(lng2-lng1)*Math.PI/180;const lat1R=lat1*Math.PI/180;const lat2R=lat2*Math.PI/180;const y=Math.sin(dLng)*Math.cos(lat2R);const x=Math.cos(lat1R)*Math.sin(lat2R)-Math.sin(lat1R)*Math.cos(lat2R)*Math.cos(dLng);return(Math.atan2(y,x)*180/Math.PI+360)%360;}
+function bearingDiff(b1,b2){let diff=b2-b1;while(diff>180)diff-=360;while(diff<-180)diff+=360;return diff;}
 
-function getBearing(lat1, lng1, lat2, lng2) {
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const lat1R = lat1 * Math.PI / 180;
-  const lat2R = lat2 * Math.PI / 180;
-  const y = Math.sin(dLng) * Math.cos(lat2R);
-  const x = Math.cos(lat1R) * Math.sin(lat2R) - Math.sin(lat1R) * Math.cos(lat2R) * Math.cos(dLng);
-  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+// ── Nav HUD ───────────────────────────────────────
+function updateNavHUD(){
+  if(!navRoute||navRoute.length<2) return;
+  const nextTurn=(navTurns.length>0)?(navTurns.find(t=>t.routeIdx>=navStepIndex)||navTurns[navTurns.length-1]):{arrow:'⬆️',instruction:'Continue to destination',routeIdx:navRoute.length-1,lat:navRoute[navRoute.length-1][0],lng:navRoute[navRoute.length-1][1]};
+  let distToTurn=gpsPosition?haversineCoords(gpsPosition.lat,gpsPosition.lng,nextTurn.lat,nextTurn.lng):0;
+  let remaining=0;
+  for(let i=navStepIndex;i<navRoute.length-1;i++) remaining+=haversineCoords(navRoute[i][0],navRoute[i][1],navRoute[i+1][0],navRoute[i+1][1]);
+  const turnDistStr=distToTurn<50?'Now':distToTurn<1000?Math.round(distToTurn)+' m':(distToTurn/1000).toFixed(1)+' km';
+  const remainStr=remaining<1000?Math.round(remaining)+' m':(remaining/1000).toFixed(1)+' km';
+  const totalStr=navTotalDistM<1000?Math.round(navTotalDistM)+' m':(navTotalDistM/1000).toFixed(1)+' km';
+  const progressPct=navTotalDistM>0?Math.min(100,Math.round((1-remaining/navTotalDistM)*100)):0;
+  const speedKmh=gpsPosition?.speed!=null?Math.round(gpsPosition.speed*3.6):null;
+  const speedMs=(gpsPosition?.speed>0.5)?gpsPosition.speed:(transportMode==='walk'?1.4:transportMode==='bike'?4.2:13.9);
+  const etaSecs=speedMs>0?remaining/speedMs:0;
+  const etaMins=Math.round(etaSecs/60);
+  const etaStr=etaMins<1?'<1 min':etaMins<60?etaMins+' min':Math.floor(etaMins/60)+'h '+(etaMins%60)+'m';
+  document.getElementById('nav-turn-arrow').textContent=nextTurn.arrow;
+  document.getElementById('nav-turn-text').textContent=nextTurn.instruction;
+  document.getElementById('nav-turn-dist').textContent=turnDistStr;
+  document.getElementById('nav-remain-dist').textContent=remainStr;
+  document.getElementById('nav-total-dist').textContent=totalStr;
+  document.getElementById('nav-eta').textContent=etaStr;
+  document.getElementById('nav-speed').textContent=speedKmh!=null?speedKmh+'':'—';
+  document.getElementById('nav-progress-fill').style.width=progressPct+'%';
 }
 
-function bearingDiff(b1, b2) {
-  let diff = b2 - b1;
-  while (diff > 180) diff -= 360;
-  while (diff < -180) diff += 360;
-  return diff; // positive = left, negative = right
+// ── Wake lock ─────────────────────────────────────
+async function requestWakeLock(){
+  if('wakeLock' in navigator){try{navWakeLock=await navigator.wakeLock.request('screen');document.addEventListener('visibilitychange',async()=>{if(navWakeLock!==null&&document.visibilityState==='visible')navWakeLock=await navigator.wakeLock.request('screen');});}catch(e){console.log('Wake lock:',e.message);}}
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// NAV HUD UPDATE
-// ═══════════════════════════════════════════════════════════════════════════
-function updateNavHUD() {
-  if (!navRoute || navRoute.length < 2) return;
-
-  // Find the next upcoming turn (may be empty for very short/straight routes)
-  const nextTurn = (navTurns.length > 0)
-    ? (navTurns.find(t => t.routeIdx >= navStepIndex) || navTurns[navTurns.length - 1])
-    : { arrow: '⬆️', instruction: 'Continue to destination', routeIdx: navRoute.length - 1, lat: navRoute[navRoute.length-1][0], lng: navRoute[navRoute.length-1][1] };
-
-  // Distance to next turn
-  let distToTurn = 0;
-  if (gpsPosition) {
-    distToTurn = haversineCoords(gpsPosition.lat, gpsPosition.lng, nextTurn.lat, nextTurn.lng);
-  }
-
-  // Remaining distance on route from current step
-  let remaining = 0;
-  for (let i = navStepIndex; i < navRoute.length - 1; i++) {
-    remaining += haversineCoords(navRoute[i][0], navRoute[i][1], navRoute[i+1][0], navRoute[i+1][1]);
-  }
-
-  // Format distance to turn
-  const turnDistStr = distToTurn < 50  ? 'Now' :
-                      distToTurn < 1000 ? Math.round(distToTurn) + ' m' :
-                      (distToTurn / 1000).toFixed(1) + ' km';
-
-  // Remaining
-  const remainStr = remaining < 1000 ? Math.round(remaining) + ' m' :
-                    (remaining / 1000).toFixed(1) + ' km';
-
-  // Total
-  const totalStr = navTotalDistM < 1000 ? Math.round(navTotalDistM) + ' m' :
-                   (navTotalDistM / 1000).toFixed(1) + ' km';
-
-  // Progress (0–100%)
-  const progressPct = navTotalDistM > 0
-    ? Math.min(100, Math.round((1 - remaining / navTotalDistM) * 100))
-    : 0;
-
-  // Speed
-  const speedKmh = gpsPosition?.speed != null ? Math.round(gpsPosition.speed * 3.6) : null;
-  const speedStr = speedKmh != null ? speedKmh + '' : '—';
-
-  // ETA
-  const speedMs = (gpsPosition?.speed > 0.5) ? gpsPosition.speed
-                : (transportMode === 'walk' ? 1.4 : transportMode === 'bike' ? 4.2 : 13.9);
-  const etaSecs = speedMs > 0 ? remaining / speedMs : 0;
-  const etaMins = Math.round(etaSecs / 60);
-  const etaStr = etaMins < 1 ? '<1 min' : etaMins < 60 ? etaMins + ' min' : Math.floor(etaMins/60) + 'h ' + (etaMins%60) + 'm';
-
-  // Update DOM
-  document.getElementById('nav-turn-arrow').textContent  = nextTurn.arrow;
-  document.getElementById('nav-turn-text').textContent   = nextTurn.instruction;
-  document.getElementById('nav-turn-dist').textContent   = turnDistStr;
-  document.getElementById('nav-remain-dist').textContent = remainStr;
-  document.getElementById('nav-total-dist').textContent  = totalStr;
-  document.getElementById('nav-eta').textContent         = etaStr;
-  document.getElementById('nav-speed').textContent       = speedStr;
-  document.getElementById('nav-progress-fill').style.width = progressPct + '%';
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// WAKE LOCK
-// ═══════════════════════════════════════════════════════════════════════════
-async function requestWakeLock() {
-  if ('wakeLock' in navigator) {
-    try {
-      navWakeLock = await navigator.wakeLock.request('screen');
-      // Re-acquire if page becomes visible again
-      document.addEventListener('visibilitychange', async () => {
-        if (navWakeLock !== null && document.visibilityState === 'visible') {
-          navWakeLock = await navigator.wakeLock.request('screen');
-        }
-      });
-    } catch (e) {
-      console.log('Wake lock not available:', e.message);
-    }
-  }
-}
-
-// Show nav button once a route exists
-function showNavButton() {
-  document.getElementById('nav-btn').classList.add('nav-btn-ready');
-}
+function showNavButton(){document.getElementById('nav-btn').classList.add('nav-btn-ready');}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BOOT
