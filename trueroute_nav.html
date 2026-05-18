@@ -170,6 +170,37 @@
   .avoid-chip.active { border-color: var(--accent2); color: var(--accent2); background: rgba(255,51,102,0.08); }
   .avoid-chip:hover { border-color: var(--accent2); color: var(--accent2); }
 
+  /* ── Advanced road type menu ─────────────────────── */
+  #avoid-advanced-toggle { background: transparent; border: none; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; padding: 0; display: flex; align-items: center; gap: 4px; transition: color 0.2s; }
+  #avoid-advanced-toggle:hover { color: var(--accent3); }
+  #avoid-advanced-toggle .toggle-arrow { transition: transform 0.2s; display: inline-block; }
+  #avoid-advanced-toggle.open .toggle-arrow { transform: rotate(90deg); }
+  #avoid-advanced-menu { display: none; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; margin-top: 4px; }
+  #avoid-advanced-menu.open { display: block; }
+  .road-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+  .road-type-item { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 3px 0; }
+  .road-type-item input[type=checkbox] { accent-color: var(--accent2); width: 12px; height: 12px; flex-shrink: 0; cursor: pointer; }
+  .road-type-item label { font-size: 9px; letter-spacing: 0.5px; color: var(--muted); cursor: pointer; text-transform: uppercase; transition: color 0.2s; }
+  .road-type-item:hover label { color: var(--accent2); }
+  .road-type-item input:checked + label { color: var(--accent2); }
+  .avoid-advanced-section-label { font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--border); margin: 8px 0 4px; border-top: 1px solid var(--border); padding-top: 6px; }
+  .avoid-advanced-section-label:first-child { margin-top: 0; border-top: none; padding-top: 0; }
+
+  /* ── GPX import styles ───────────────────────────── */
+  #gpx-section { display: flex; flex-direction: column; gap: 6px; }
+  #gpx-drop-zone { border: 1px dashed var(--border); border-radius: 4px; padding: 12px; text-align: center; cursor: pointer; transition: all 0.2s; }
+  #gpx-drop-zone:hover, #gpx-drop-zone.drag-over { border-color: var(--accent3); background: rgba(68,136,255,0.05); }
+  #gpx-drop-zone .gpx-icon { font-size: 18px; margin-bottom: 4px; }
+  #gpx-drop-zone .gpx-label { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  #gpx-drop-zone input[type=file] { display: none; }
+  #gpx-track-info { background: var(--bg); border: 1px solid var(--accent3); border-radius: 4px; padding: 10px 12px; display: none; flex-direction: column; gap: 6px; }
+  #gpx-track-info.visible { display: flex; }
+  .gpx-stat-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .gpx-stat-key { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .gpx-stat-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; color: var(--accent3); }
+  #gpx-remove-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 7px; border-radius: 4px; cursor: pointer; transition: all 0.2s; width: 100%; }
+  #gpx-remove-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
   /* ── NEW: Swap button ────────────────────────────── */
   #swap-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: 'Space Mono', monospace; font-size: 10px; padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: all 0.2s; letter-spacing: 1px; }
   #swap-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -340,11 +371,48 @@
 
     <!-- Avoid options -->
     <div class="field-group" id="avoid-section">
-      <div class="field-label">Avoid</div>
+      <div class="field-label" style="justify-content:space-between;">
+        <span>Avoid</span>
+        <button id="avoid-advanced-toggle" onclick="toggleAvoidAdvanced()"><span class="toggle-arrow">▶</span> Road types</button>
+      </div>
       <div class="avoid-row">
         <button class="avoid-chip" id="avoid-highways" onclick="toggleAvoid('highways')">Highways</button>
         <button class="avoid-chip" id="avoid-tolls"    onclick="toggleAvoid('tolls')">Tolls</button>
         <button class="avoid-chip" id="avoid-ferries"  onclick="toggleAvoid('ferries')">Ferries</button>
+      </div>
+      <div id="avoid-advanced-menu">
+        <div class="avoid-advanced-section-label">Main roads</div>
+        <div class="road-type-grid">
+          <div class="road-type-item"><input type="checkbox" id="rt-motorway" onchange="toggleRoadType('motorway')"><label for="rt-motorway">Motorway</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-trunk" onchange="toggleRoadType('trunk')"><label for="rt-trunk">Trunk</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-primary" onchange="toggleRoadType('primary')"><label for="rt-primary">Primary</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-secondary" onchange="toggleRoadType('secondary')"><label for="rt-secondary">Secondary</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-tertiary" onchange="toggleRoadType('tertiary')"><label for="rt-tertiary">Tertiary</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-unclassified" onchange="toggleRoadType('unclassified')"><label for="rt-unclassified">Unclassified</label></div>
+        </div>
+        <div class="avoid-advanced-section-label">Local roads</div>
+        <div class="road-type-grid">
+          <div class="road-type-item"><input type="checkbox" id="rt-residential" onchange="toggleRoadType('residential')"><label for="rt-residential">Residential</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-living_street" onchange="toggleRoadType('living_street')"><label for="rt-living_street">Living street</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-service" onchange="toggleRoadType('service')"><label for="rt-service">Service</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-track" onchange="toggleRoadType('track')"><label for="rt-track">Track</label></div>
+        </div>
+        <div class="avoid-advanced-section-label">Links / ramps</div>
+        <div class="road-type-grid">
+          <div class="road-type-item"><input type="checkbox" id="rt-motorway_link" onchange="toggleRoadType('motorway_link')"><label for="rt-motorway_link">Motorway link</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-trunk_link" onchange="toggleRoadType('trunk_link')"><label for="rt-trunk_link">Trunk link</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-primary_link" onchange="toggleRoadType('primary_link')"><label for="rt-primary_link">Primary link</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-secondary_link" onchange="toggleRoadType('secondary_link')"><label for="rt-secondary_link">Secondary link</label></div>
+        </div>
+        <div class="avoid-advanced-section-label">Non-motorized</div>
+        <div class="road-type-grid">
+          <div class="road-type-item"><input type="checkbox" id="rt-cycleway" onchange="toggleRoadType('cycleway')"><label for="rt-cycleway">Cycleway</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-footway" onchange="toggleRoadType('footway')"><label for="rt-footway">Footway</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-path" onchange="toggleRoadType('path')"><label for="rt-path">Path</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-steps" onchange="toggleRoadType('steps')"><label for="rt-steps">Steps</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-pedestrian" onchange="toggleRoadType('pedestrian')"><label for="rt-pedestrian">Pedestrian</label></div>
+          <div class="road-type-item"><input type="checkbox" id="rt-road" onchange="toggleRoadType('road')"><label for="rt-road">Generic road</label></div>
+        </div>
       </div>
     </div>
 
@@ -434,14 +502,31 @@
 
     <hr class="divider" id="post-route-divider" style="display:none;"/>
 
-    <!-- NEW: Export + Share buttons (shown after route found) -->
+    <!-- NEW: Export + GPX Import (shown after route found) -->
     <div id="post-route-actions" style="display:none; flex-direction:column; gap:8px;">
       <button onclick="exportGPX()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:10px;border-radius:4px;cursor:pointer;width:100%;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">⬇ Export GPX</button>
-      <button onclick="shareRoute()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:10px;border-radius:4px;cursor:pointer;width:100%;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent3)';this.style.color='var(--accent3)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🔗 Share Route Link</button>
       <button onclick="fetchElevation()" id="elev-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:10px;border-radius:4px;cursor:pointer;width:100%;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent3)';this.style.color='var(--accent3)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">📈 Elevation Profile</button>
     </div>
 
-    <hr class="divider"/>
+    <hr class="divider" id="gpx-import-divider"/>
+
+    <!-- GPX Import (always visible) -->
+    <div class="field-group">
+      <div class="field-label">Import GPX Track</div>
+      <div id="gpx-section">
+        <div id="gpx-drop-zone" onclick="document.getElementById('gpx-file-input').click()" ondragover="onGpxDragOver(event)" ondragleave="onGpxDragLeave(event)" ondrop="onGpxDrop(event)">
+          <div class="gpx-icon">📂</div>
+          <div class="gpx-label">Click or drop a .gpx file</div>
+          <input type="file" id="gpx-file-input" accept=".gpx" onchange="onGpxFileSelected(event)"/>
+        </div>
+        <div id="gpx-track-info">
+          <div class="gpx-stat-row"><span class="gpx-stat-key">Distance</span><span class="gpx-stat-val" id="gpx-stat-dist">—</span></div>
+          <div class="gpx-stat-row"><span class="gpx-stat-key">Track points</span><span class="gpx-stat-val" id="gpx-stat-pts">—</span></div>
+          <div class="gpx-stat-row"><span class="gpx-stat-key">Name</span><span class="gpx-stat-val" id="gpx-stat-name" style="font-size:10px;word-break:break-all;">—</span></div>
+          <button id="gpx-remove-btn" onclick="removeGpxTrack()">✕ Remove GPX Track</button>
+        </div>
+      </div>
+    </div>
 
     <!-- NEW: Recent routes -->
     <div class="field-group">
@@ -844,6 +929,21 @@ function toggleAvoid(key) {
   document.getElementById(`avoid-${key}`).classList.toggle('active', avoidSet.has(key));
 }
 
+// Advanced road type avoidance
+let avoidRoadTypes = new Set(); // individual highway= values to skip
+
+function toggleAvoidAdvanced() {
+  const btn = document.getElementById('avoid-advanced-toggle');
+  const menu = document.getElementById('avoid-advanced-menu');
+  btn.classList.toggle('open');
+  menu.classList.toggle('open');
+}
+
+function toggleRoadType(type) {
+  if (avoidRoadTypes.has(type)) avoidRoadTypes.delete(type);
+  else avoidRoadTypes.add(type);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ALGORITHM TOGGLE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1230,6 +1330,7 @@ function buildGraph(osmData, mode='car') {
     if (avoidSet.has('highways') && (tags.highway==='motorway'||tags.highway==='motorway_link'||tags.highway==='trunk'||tags.highway==='trunk_link')) continue;
     if (avoidSet.has('tolls') && tags.toll==='yes') continue;
     if (avoidSet.has('ferries') && tags.route==='ferry') continue;
+    if (avoidRoadTypes.size > 0 && tags.highway && avoidRoadTypes.has(tags.highway)) continue;
     const nds=el.nodes;
     const ow=!ignoreOneway&&(tags.oneway==='yes'||tags.oneway==='1'||tags.junction==='roundabout'||tags.highway==='motorway');
     const owr=!ignoreOneway&&tags.oneway==='-1';
@@ -1527,26 +1628,123 @@ ${trkpts}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SHARE ROUTE LINK
+// GPX IMPORT
 // ═══════════════════════════════════════════════════════════════════════════
-function shareRoute() {
-  if (!pointA||!pointB) return;
-  const params = new URLSearchParams({
-    alat: pointA.lat.toFixed(6), alng: pointA.lng.toFixed(6),
-    blat: pointB.lat.toFixed(6), blng: pointB.lng.toFixed(6),
-    mode: transportMode,
-    algo: algorithmMode
-  });
-  if (waypoints.length) {
-    params.set('wps', waypoints.map(wp=>`${wp.lat.toFixed(6)},${wp.lng.toFixed(6)}`).join('|'));
+let gpxTrackLayer = null;
+let gpxStartMarker = null;
+let gpxEndMarker = null;
+
+function onGpxDragOver(e) {
+  e.preventDefault();
+  document.getElementById('gpx-drop-zone').classList.add('drag-over');
+}
+function onGpxDragLeave(e) {
+  document.getElementById('gpx-drop-zone').classList.remove('drag-over');
+}
+function onGpxDrop(e) {
+  e.preventDefault();
+  document.getElementById('gpx-drop-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) loadGpxFile(file);
+}
+function onGpxFileSelected(e) {
+  const file = e.target.files[0];
+  if (file) loadGpxFile(file);
+  e.target.value = '';
+}
+
+function loadGpxFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      parseAndRenderGpx(e.target.result, file.name);
+    } catch(err) {
+      showError('GPX parse error: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseAndRenderGpx(xmlText, fileName) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'application/xml');
+  if (doc.querySelector('parsererror')) throw new Error('Invalid GPX XML');
+
+  // Collect all track points from trkpt and rtept
+  const trkpts = Array.from(doc.querySelectorAll('trkpt, rtept'));
+  if (!trkpts.length) throw new Error('No track points found in GPX file');
+
+  const latlngs = trkpts.map(pt => {
+    const lat = parseFloat(pt.getAttribute('lat'));
+    const lon = parseFloat(pt.getAttribute('lon'));
+    if (isNaN(lat) || isNaN(lon)) return null;
+    return [lat, lon];
+  }).filter(Boolean);
+
+  if (latlngs.length < 2) throw new Error('GPX file has fewer than 2 valid points');
+
+  // Remove previous GPX layer/markers
+  removeGpxTrack();
+
+  // Render the track
+  gpxTrackLayer = L.polyline(latlngs, {
+    color: '#4488ff',
+    weight: 4,
+    opacity: 0.85,
+    lineJoin: 'round',
+    dashArray: null
+  }).addTo(map);
+
+  // Start marker (green dot, same as route origin)
+  const [startLat, startLng] = latlngs[0];
+  const [endLat, endLng] = latlngs[latlngs.length - 1];
+
+  gpxStartMarker = L.marker([startLat, startLng], {
+    icon: L.divIcon({
+      className: '',
+      html: `<div style="width:16px;height:16px;border-radius:50%;background:#00ff88;border:2px solid white;box-shadow:0 0 12px #00ff88;"></div>`,
+      iconSize: [16,16], iconAnchor: [8,8]
+    })
+  }).bindTooltip('🏁 GPX Start').addTo(map);
+
+  // End marker (red dot, same as route destination)
+  gpxEndMarker = L.marker([endLat, endLng], {
+    icon: L.divIcon({
+      className: '',
+      html: `<div style="width:16px;height:16px;border-radius:50%;background:#ff3366;border:2px solid white;box-shadow:0 0 12px #ff3366;"></div>`,
+      iconSize: [16,16], iconAnchor: [8,8]
+    })
+  }).bindTooltip('🎯 GPX End').addTo(map);
+
+  map.fitBounds(gpxTrackLayer.getBounds(), { padding: [40, 40] });
+
+  // Compute distance
+  let totalDist = 0;
+  for (let i = 0; i < latlngs.length - 1; i++) {
+    totalDist += haversineCoords(latlngs[i][0], latlngs[i][1], latlngs[i+1][0], latlngs[i+1][1]);
   }
-  const url = `${location.origin}${location.pathname}#${params.toString()}`;
-  navigator.clipboard.writeText(url).then(() => {
-    showToast('✅ Link copied to clipboard!');
-  }).catch(() => {
-    // Fallback: show in a prompt
-    prompt('Copy this link:', url);
-  });
+  const distStr = totalDist >= 1000 ? (totalDist/1000).toFixed(2) + ' km' : Math.round(totalDist) + ' m';
+
+  // Get track name
+  const nameEl = doc.querySelector('trk > name, rte > name');
+  const trackName = nameEl ? nameEl.textContent.trim() : fileName.replace(/\.gpx$/i, '');
+
+  // Show info
+  document.getElementById('gpx-stat-dist').textContent = distStr;
+  document.getElementById('gpx-stat-pts').textContent = latlngs.length.toLocaleString();
+  document.getElementById('gpx-stat-name').textContent = trackName;
+  document.getElementById('gpx-track-info').classList.add('visible');
+  document.getElementById('gpx-drop-zone').style.display = 'none';
+
+  showToast('✅ GPX track loaded!');
+}
+
+function removeGpxTrack() {
+  if (gpxTrackLayer) { gpxTrackLayer.remove(); gpxTrackLayer = null; }
+  if (gpxStartMarker) { gpxStartMarker.remove(); gpxStartMarker = null; }
+  if (gpxEndMarker) { gpxEndMarker.remove(); gpxEndMarker = null; }
+  document.getElementById('gpx-track-info').classList.remove('visible');
+  document.getElementById('gpx-drop-zone').style.display = '';
 }
 
 function loadFromUrl() {
@@ -1665,19 +1863,29 @@ async function fetchElevation() {
   if (sampled[sampled.length-1] !== coords[coords.length-1]) sampled.push(coords[coords.length-1]);
 
   try {
-    // Use Open-Elevation API (free, no key)
-    const locations = sampled.map(ll=>({latitude:ll.lat.toFixed(5),longitude:ll.lng.toFixed(5)}));
-    const res = await fetch('https://api.open-elevation.com/api/v1/lookup', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({locations})
+    // Use open-topo-data SRTM30M (free, no key, reliable)
+    const locStr = sampled.map(ll=>`${ll.lat.toFixed(5)},${ll.lng.toFixed(5)}`).join('|');
+    const res = await fetch(`https://api.opentopodata.org/v1/srtm30m?locations=${encodeURIComponent(locStr)}`, {
+      headers: {'Accept':'application/json'}
     });
     if (!res.ok) throw new Error('Elevation API returned '+res.status);
     const data = await res.json();
-    const elevations = data.results.map(r=>r.elevation);
+    if (!data.results || !data.results.length) throw new Error('No elevation data returned');
+    const elevations = data.results.map(r => r.elevation != null ? r.elevation : 0);
     drawElevationProfile(elevations, sampled);
   } catch(e) {
-    showError('Elevation fetch failed: '+e.message+'. Try again or check your connection.');
+    // Fallback: try ASTER dataset
+    try {
+      const locStr = sampled.map(ll=>`${ll.lat.toFixed(5)},${ll.lng.toFixed(5)}`).join('|');
+      const res2 = await fetch(`https://api.opentopodata.org/v1/aster30m?locations=${encodeURIComponent(locStr)}`);
+      if (!res2.ok) throw new Error('Fallback elevation API returned '+res2.status);
+      const data2 = await res2.json();
+      if (!data2.results || !data2.results.length) throw new Error('No elevation data from fallback');
+      const elevations2 = data2.results.map(r => r.elevation != null ? r.elevation : 0);
+      drawElevationProfile(elevations2, sampled);
+    } catch(e2) {
+      showError('Elevation fetch failed: '+e2.message+'. The elevation service may be temporarily unavailable.');
+    }
   }
 
   btn.textContent = '📈 Elevation Profile';
@@ -1778,6 +1986,7 @@ function clearAll() {
   document.getElementById('map-overlay').style.display='block';
   updateOverlay('📍 Click map to set ORIGIN');
   closeElevation();
+  removeGpxTrack();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
