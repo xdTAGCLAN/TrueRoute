@@ -155,7 +155,7 @@
     background: var(--accent3); color: #fff; border: none;
     font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px;
     letter-spacing: 1px; text-transform: uppercase; padding: 14px;
-    border-radius: 4px; cursor: pointer; transition: all 0.2s; width: 100%; display: none;
+    border-radius: 4px; cursor: pointer; transition: all 0.2s; width: 100%;
   }
   #nav-btn:hover { background: #6699ff; transform: translateY(-1px); }
   #nav-btn.stop { background: var(--accent2); }
@@ -168,9 +168,6 @@
     z-index: 600; display: none; flex-direction: column;
     backdrop-filter: blur(12px);
     padding-bottom: max(8px, env(safe-area-inset-bottom));
-    /* Prevent HUD from ever being taller than ~50% of viewport */
-    max-height: 50vh;
-    overflow: hidden;
   }
   #nav-hud.visible { display: flex; }
   #nav-hud-top {
@@ -237,8 +234,9 @@
     }
     #map-wrap { flex: 1; min-height: 0; }
     :root { --panel-w: 100%; }
-    /* Show GPS/nav buttons only on mobile */
-    #gps-btn, #nav-btn { display: block; }
+    /* Show GPS button always on mobile; nav button only once a route is ready */
+    #gps-btn { display: block; }
+    #nav-btn.nav-btn-ready { display: block; }
   }
 
   /* Leaflet overrides - keep map visible but canvas goes above */
@@ -1698,10 +1696,7 @@ async function requestWakeLock() {
 
 // Show nav button once a route exists
 function showNavButton() {
-  // Only show on mobile (nav features are mobile-only)
-  if (window.matchMedia('(max-width: 700px)').matches) {
-    document.getElementById('nav-btn').style.display = 'block';
-  }
+  document.getElementById('nav-btn').classList.add('nav-btn-ready');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
