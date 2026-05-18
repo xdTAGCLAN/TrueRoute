@@ -1855,12 +1855,18 @@ async function fetchElevation() {
   btn.disabled = true;
 
   const coords = routeLayer.getLatLngs();
-  // Sample up to 100 points evenly
+  // Sample exactly up to 100 points (API hard limit)
   const maxSamples = 100;
-  const step = Math.max(1, Math.floor(coords.length / maxSamples));
   const sampled = [];
-  for (let i = 0; i < coords.length; i += step) sampled.push(coords[i]);
-  if (sampled[sampled.length-1] !== coords[coords.length-1]) sampled.push(coords[coords.length-1]);
+  if (coords.length <= maxSamples) {
+    sampled.push(...coords);
+  } else {
+    // Pick maxSamples evenly-spaced indices, always including first and last
+    for (let i = 0; i < maxSamples; i++) {
+      const idx = Math.round(i * (coords.length - 1) / (maxSamples - 1));
+      sampled.push(coords[idx]);
+    }
+  }
 
   try {
     // Use open-topo-data SRTM30M (free, no key, reliable)
