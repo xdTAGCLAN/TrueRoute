@@ -241,17 +241,12 @@
     #gps-btn { display: block; }
     #nav-btn.nav-btn-ready { display: block; }
 
-    /* When nav-hud is moved to body level it becomes a flex child — give it a fixed height band */
-    body > #nav-hud {
-      position: static;
-      flex-shrink: 0;
-      border-top: 2px solid var(--accent3);
-    }
-    /* While it's still inside map-wrap (pre-nav or desktop), keep it absolute */
+    /* HUD always stays absolute inside map-wrap — never moved to body */
     #map-wrap #nav-hud {
       position: absolute;
       bottom: 0; left: 0; right: 0;
     }
+
   }
 
   /* Leaflet overrides - keep map visible but canvas goes above */
@@ -1418,6 +1413,21 @@ function toggleNavigation() {
   }
 }
 
+
+// Returns a LatLng shifted south so that [lat,lng] appears centered
+// in the visible map area above the HUD panel.
+function navCenter(lat, lng) {
+  const hud = document.getElementById('nav-hud');
+  if (!hud || !hud.classList.contains('visible')) return L.latLng(lat, lng);
+  const hudH = hud.getBoundingClientRect().height;
+  if (hudH < 10) return L.latLng(lat, lng);
+  // Shift the center point south by half the HUD height in pixels,
+  // so the GPS dot ends up visually centered in the area above the HUD.
+  const pt = map.project(L.latLng(lat, lng), map.getZoom());
+  const shifted = map.unproject(L.point(pt.x, pt.y + hudH / 2), map.getZoom());
+  return shifted;
+}
+
 function startNavigation() {
   if (!routeLayer) {
     showError('Please find a route first before starting navigation.');
@@ -1450,26 +1460,23 @@ function startNavigation() {
   // Collapse settings panel on mobile
   document.body.classList.add('nav-active');
 
-  // On mobile: move HUD out of map-wrap to body so map fills space above it
+  // Show HUD (stays inside map-wrap — no DOM move needed)
   const hud = document.getElementById('nav-hud');
-  if (window.matchMedia('(max-width: 700px)').matches) {
-    document.body.appendChild(hud);
-  }
-
-  // Update UI
   const navBtn = document.getElementById('nav-btn');
   navBtn.textContent = '🛑 Stop Navigation';
   navBtn.classList.add('stop');
   hud.classList.add('visible');
 
-  // Let layout settle then tell Leaflet the map size changed, then re-center with offset
-  requestAnimationFrame(() => {
+  // Measure HUD height and expose as CSS var so Leaflet padding-bottom matches
+  // Use two rAFs: first lets the HUD paint, second lets layout fully reflow
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const hudH = hud.getBoundingClientRect().height;
+    document.documentElement.style.setProperty('--hud-h', hudH + 'px');
     map.invalidateSize();
     if (gpsPosition) {
-      const targetLL = getOffsetCenter(gpsPosition.lat, gpsPosition.lng);
-      map.setView(targetLL, 17);
+      map.setView(navCenter(gpsPosition.lat, gpsPosition.lng), 17);
     }
-  });
+  }));
 
   // Keep screen awake
   requestWakeLock();
@@ -1487,13 +1494,9 @@ function stopNavigation() {
   document.body.classList.remove('nav-active');
   const hud = document.getElementById('nav-hud');
   hud.classList.remove('visible');
-  // Move HUD back inside map-wrap if it was pulled out
-  const mapWrap = document.getElementById('map-wrap');
-  if (hud.parentElement !== mapWrap) {
-    mapWrap.appendChild(hud);
-  }
   document.documentElement.style.removeProperty('--hud-h');
-  map.invalidateSize();
+  // Let the panel re-expand before invalidating
+  requestAnimationFrame(() => requestAnimationFrame(() => map.invalidateSize()));
   const navBtn = document.getElementById('nav-btn');
   navBtn.textContent = '🧭 Start Navigation';
   navBtn.classList.remove('stop');
@@ -1527,39 +1530,11 @@ function updateNavigation() {
     }
     updateNavHUD();
 
-    // Follow mode: center map but offset upward so GPS dot sits in the
-    // visible portion of the map (above the HUD panel)
-    const targetLL = getOffsetCenter(lat, lng);
-    map.setView(targetLL, map.getZoom(), { animate: true, duration: 0.5 });
+    // Follow mode: offset center so GPS dot sits in middle of visible area above HUD
+    map.setView(navCenter(lat, lng), map.getZoom(), { animate: true, duration: 0.5 });
   }
 }
 
-// Returns a LatLng shifted so that [lat,lng] appears ~65% up from the
-// bottom of the *visible* map area (i.e. above the HUD).
-function getOffsetCenter(lat, lng) {
-  const hud = document.getElementById('nav-hud');
-  const mapWrap = document.getElementById('map-wrap');
-  if (!hud || !hud.classList.contains('visible')) return L.latLng(lat, lng);
-
-  // How many px does the HUD take up?
-  const hudH = hud.getBoundingClientRect().height;
-  const mapH = mapWrap.getBoundingClientRect().height;
-  const visibleH = mapH - hudH;
-
-  // We want the GPS dot to sit 35% from the top of the visible area
-  // i.e. (visibleH * 0.35) px from the top of the map container.
-  // Currently setView puts it at mapH/2. Shift = mapH/2 - visibleH*0.35
-  const targetY = visibleH * 0.35;   // desired px from top of map
-  const currentY = mapH / 2;         // where setView would put it
-  const offsetPx = currentY - targetY; // positive = need to shift center south
-
-  if (Math.abs(offsetPx) < 5) return L.latLng(lat, lng);
-
-  // Convert pixel offset to lat degrees at current zoom
-  const containerPt = map.latLngToContainerPoint(L.latLng(lat, lng));
-  const shiftedPt = L.point(containerPt.x, containerPt.y + offsetPx);
-  return map.containerPointToLatLng(shiftedPt);
-}
 
 function findClosestRoutePoint(lat, lng, route) {
   let minDist = Infinity;
