@@ -195,7 +195,7 @@
   .nav-stat-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--accent); }
   .nav-stat-lbl { font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
 
-  /* GPS / user location marker */
+  /* GPS dot on map */
   .gps-dot-outer {
     width: 22px; height: 22px; border-radius: 50%;
     background: rgba(68,136,255,0.25); border: 2px solid var(--accent3);
@@ -205,51 +205,6 @@
     width: 10px; height: 10px; border-radius: 50%;
     background: var(--accent3); box-shadow: 0 0 8px var(--accent3);
   }
-
-  /* Custom nav arrow icon */
-  .nav-arrow-icon {
-    filter: drop-shadow(0 0 6px #4488ff) drop-shadow(0 0 12px rgba(68,136,255,0.5));
-    transition: transform 0.3s ease;
-    transform-origin: center center;
-  }
-
-  /* Map tilt — applied to the Leaflet container during navigation */
-  #map-wrap.nav-tilt {
-    perspective: 900px;
-    perspective-origin: 50% 80%;
-  }
-  #map-wrap.nav-tilt #map {
-    transform-origin: 50% 80%;
-    transform: rotateX(35deg) scale(1.18);
-    transition: transform 0.6s ease;
-  }
-  /* Make sure the viz canvas tilts with the map */
-  #map-wrap.nav-tilt #viz-canvas {
-    transform-origin: 50% 80%;
-    transform: rotateX(35deg) scale(1.18);
-    transition: transform 0.6s ease;
-  }
-
-  /* Tilt toggle button */
-  #tilt-btn {
-    position: absolute;
-    top: 12px; right: 12px;
-    background: rgba(10,10,15,0.9);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-family: 'Space Mono', monospace;
-    font-size: 10px; letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 7px 12px;
-    border-radius: 20px;
-    cursor: pointer;
-    z-index: 600;
-    backdrop-filter: blur(8px);
-    display: none;
-    transition: all 0.2s;
-  }
-  #tilt-btn.visible { display: block; }
-  #tilt-btn.active { border-color: var(--accent3); color: var(--accent3); background: rgba(68,136,255,0.12); }
 
   /* Rerouting banner */
   #reroute-banner {
@@ -433,7 +388,6 @@
 <div id="map-wrap">
   <div id="map-overlay">📍 Click map to set ORIGIN</div>
   <div id="reroute-banner">🔄 Rerouting…</div>
-  <button id="tilt-btn" onclick="toggleTilt()">🗺 2D</button>
   <div id="map"></div>
   <canvas id="viz-canvas"></canvas>
   <div id="viz-legend">
@@ -487,8 +441,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════════════
-let navTiltEnabled = true;       // 3D perspective tilt during navigation
-let currentMapBearing = 0;       // current map rotation in degrees
 let map, pointA = null, pointB = null;
 let markerA = null, markerB = null;
 let routeLayer = null;
@@ -1437,32 +1389,14 @@ function updateGPSPosition(pos) {
     gpsMarker = L.marker([lat, lng], {
       icon: L.divIcon({
         className: '',
-        html: `<svg class="nav-arrow-icon" id="gps-arrow-svg" width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-          <!-- Glow circle -->
-          <circle cx="20" cy="20" r="16" fill="rgba(68,136,255,0.15)" stroke="rgba(68,136,255,0.4)" stroke-width="1.5"/>
-          <!-- Arrow body pointing up (north = 0°) -->
-          <polygon points="20,4 28,32 20,26 12,32" fill="#4488ff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
-          <!-- Tail notch -->
-          <polygon points="20,26 12,32 20,30 28,32" fill="rgba(0,40,120,0.7)"/>
-        </svg>`,
-        iconSize: [40, 40],
-        iconAnchor: [20, 20]
+        html: `<div class="gps-dot-outer"><div class="gps-dot-inner"></div></div>`,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11]
       }),
       zIndexOffset: 1000
     }).addTo(map);
   } else {
     gpsMarker.setLatLng([lat, lng]);
-  }
-
-  // Rotate the arrow icon to match heading/bearing
-  const arrowEl = document.getElementById('gps-arrow-svg');
-  if (arrowEl) {
-    const bear = (heading != null && heading >= 0) ? heading : currentMapBearing;
-    // The arrow SVG points north (0°). We rotate it by the heading.
-    // When the map is also rotated, the icon rotation must compensate:
-    // icon rotation = heading - mapBearing  (so it always points the right way)
-    const iconRotation = bear - currentMapBearing;
-    arrowEl.style.transform = `rotate(${iconRotation}deg)`;
   }
 
   // Update navigation if active
@@ -1526,13 +1460,6 @@ function startNavigation() {
   navBtn.classList.add('stop');
   hud.classList.add('visible');
 
-  // Enable 3D tilt mode
-  navTiltEnabled = true;
-  document.getElementById('map-wrap').classList.add('nav-tilt');
-  const tiltBtn = document.getElementById('tilt-btn');
-  tiltBtn.classList.add('visible', 'active');
-  tiltBtn.textContent = '🗺 2D';
-
   // Let layout settle then tell Leaflet the map size changed, then re-center with offset
   setTimeout(() => {
    map.invalidateSize();
@@ -1558,13 +1485,6 @@ function stopNavigation() {
   document.body.classList.remove('nav-active');
   const hud = document.getElementById('nav-hud');
   hud.classList.remove('visible');
-
-  // Reset map rotation and tilt
-  resetMapRotation();
-  document.getElementById('map-wrap').classList.remove('nav-tilt');
-  const tiltBtn = document.getElementById('tilt-btn');
-  tiltBtn.classList.remove('visible', 'active');
-
   // Move HUD back inside map-wrap if it was pulled out
   const mapWrap = document.getElementById('map-wrap');
   if (hud.parentElement !== mapWrap) {
@@ -1590,38 +1510,10 @@ function stopNavigation() {
 function updateNavigation() {
   if (!navActive || !navRoute || !gpsPosition) return;
 
-  const { lat, lng, heading } = gpsPosition;
+  const { lat, lng } = gpsPosition;
 
   // Find closest point on route and advance step index
   const { closestIdx, distToRoute } = findClosestRoutePoint(lat, lng, navRoute);
-
-  // Compute bearing from current position to the next route node ahead
-  let bearing = heading != null && heading >= 0 ? heading : currentMapBearing;
-  if (navRoute && navStepIndex < navRoute.length - 1) {
-    // Use route direction as authoritative bearing when heading is unreliable (<0)
-    const lookAhead = Math.min(navStepIndex + 3, navRoute.length - 1);
-    const routeBearing = getBearing(lat, lng, navRoute[lookAhead][0], navRoute[lookAhead][1]);
-    if (heading == null || heading < 0) {
-      bearing = routeBearing;
-    } else {
-      // Blend GPS heading slightly with route direction
-      bearing = heading;
-    }
-  }
-
-  // Smooth bearing (avoid jumpy rotation)
-  const diff = bearingDiff(currentMapBearing, bearing);
-  currentMapBearing = (currentMapBearing + diff * 0.15 + 360) % 360;
-
-  // Apply map rotation via CSS transform on the tile pane
-  applyMapRotation(currentMapBearing);
-
-  // Update arrow icon rotation
-  const arrowEl = document.getElementById('gps-arrow-svg');
-  if (arrowEl) {
-    // Icon should point the direction of travel; compensate for map rotation
-    arrowEl.style.transform = `rotate(${bearing - currentMapBearing}deg)`;
-  }
 
   // Check if off-route (more than 40m away)
   if (distToRoute > 40) {
@@ -1655,7 +1547,7 @@ function getOffsetCenter(lat, lng) {
   // We want the GPS dot to sit 65% down from the top of the visible area
   // i.e. (visibleH * 0.65) px from the top of the map container.
   // Currently setView puts it at mapH/2. Shift = mapH/2 - visibleH*0.65
-  const targetY = visibleH * 1;   // desired px from top of map
+  const targetY = visibleH * 0.8;   // desired px from top of map
   const currentY = mapH / 2;         // where setView would put it
   const offsetPx = currentY - targetY; // negative = need to shift center north (up)
 
@@ -1848,82 +1740,6 @@ function updateNavHUD() {
   document.getElementById('nav-eta').textContent         = etaStr;
   document.getElementById('nav-speed').textContent       = speedStr;
   document.getElementById('nav-progress-fill').style.width = progressPct + '%';
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// MAP ROTATION & TILT
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Rotate the Leaflet tile/overlay panes around the map centre.
- * We rotate the pane container rather than individual tiles so it works
- * with the canvas overlay too.
- */
-function applyMapRotation(bearing) {
-  // Rotate all Leaflet map panes
-  const mapEl = document.getElementById('map');
-  const panes = mapEl.querySelectorAll('.leaflet-map-pane');
-  panes.forEach(pane => {
-    pane.style.transformOrigin = '50% 50%';
-    if (navTiltEnabled) {
-      // Combined rotation + tilt: rotate in the XY plane, tilt done via CSS perspective on wrap
-      pane.style.transform = `rotate(${bearing}deg)`;
-    } else {
-      pane.style.transform = `rotate(${bearing}deg)`;
-    }
-  });
-
-  // Also rotate the viz canvas to match
-  const cvs = document.getElementById('viz-canvas');
-  if (cvs) {
-    cvs.style.transformOrigin = '50% 50%';
-    cvs.style.transform = `rotate(${bearing}deg)`;
-  }
-
-  // Counter-rotate the GPS marker so it stays visually upright
-  // (the icon's internal SVG already handles pointing direction)
-  if (gpsMarker) {
-    const markerEl = gpsMarker.getElement();
-    if (markerEl) {
-      // The marker pane rotates with the map; we need to cancel that for the container
-      // but the SVG arrow inside handles its own rotation — do nothing here as
-      // Leaflet markers sit in marker pane which also rotates. Counter-rotate the element:
-      markerEl.style.transformOrigin = '50% 50%';
-      markerEl.style.transform = `rotate(${-bearing}deg)`;
-    }
-  }
-}
-
-function resetMapRotation() {
-  const mapEl = document.getElementById('map');
-  const panes = mapEl.querySelectorAll('.leaflet-map-pane');
-  panes.forEach(pane => {
-    pane.style.transform = '';
-    pane.style.transformOrigin = '';
-  });
-  const cvs = document.getElementById('viz-canvas');
-  if (cvs) { cvs.style.transform = ''; cvs.style.transformOrigin = ''; }
-  if (gpsMarker) {
-    const markerEl = gpsMarker.getElement();
-    if (markerEl) { markerEl.style.transform = ''; }
-  }
-  currentMapBearing = 0;
-}
-
-function toggleTilt() {
-  navTiltEnabled = !navTiltEnabled;
-  const btn = document.getElementById('tilt-btn');
-  const wrap = document.getElementById('map-wrap');
-  if (navTiltEnabled) {
-    wrap.classList.add('nav-tilt');
-    btn.textContent = '🗺 2D';
-    btn.classList.add('active');
-  } else {
-    wrap.classList.remove('nav-tilt');
-    btn.textContent = '🗺 3D';
-    btn.classList.remove('active');
-  }
-  map.invalidateSize();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
