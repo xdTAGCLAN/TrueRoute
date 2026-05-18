@@ -211,16 +211,30 @@
     display: none; white-space: nowrap;
   }
 
-  /* Mobile panel collapse */
-  @media (max-width: 600px) {
+  /* Mobile-only elements — hidden on desktop by default */
+  #gps-btn, #nav-btn { display: none; }
+
+  /* Mobile layout */
+  @media (max-width: 700px) {
     body { flex-direction: column; }
     #panel {
       width: 100% !important; min-width: 100% !important;
       border-right: none; border-bottom: 1px solid var(--border);
-      max-height: 42vh; overflow-y: auto;
+      max-height: 45vh; overflow-y: auto;
+      transition: max-height 0.35s ease, opacity 0.3s ease;
+    }
+    /* Collapse panel during active navigation */
+    body.nav-active #panel {
+      max-height: 0 !important;
+      overflow: hidden;
+      opacity: 0;
+      border-bottom: none;
+      pointer-events: none;
     }
     #map-wrap { flex: 1; min-height: 0; }
     :root { --panel-w: 100%; }
+    /* Show GPS/nav buttons only on mobile */
+    #gps-btn, #nav-btn { display: block; }
   }
 
   /* Leaflet overrides - keep map visible but canvas goes above */
@@ -369,13 +383,23 @@
   <div id="nav-hud">
     <div id="nav-hud-top">
       <div id="nav-turn-arrow">⬆️</div>
-      <div id="nav-turn-text">Head north on route</div>
+      <div id="nav-turn-text">Head towards destination</div>
       <div id="nav-turn-dist">—</div>
+    </div>
+    <!-- Progress bar -->
+    <div style="padding: 0 18px; margin-top: -2px;">
+      <div style="background:var(--border);border-radius:2px;height:3px;overflow:hidden;">
+        <div id="nav-progress-fill" style="height:100%;background:linear-gradient(90deg,var(--accent3),var(--accent));border-radius:2px;width:0%;transition:width 0.5s ease;"></div>
+      </div>
     </div>
     <div id="nav-hud-bottom">
       <div class="nav-stat">
         <div class="nav-stat-val" id="nav-remain-dist">—</div>
         <div class="nav-stat-lbl">Remaining</div>
+      </div>
+      <div class="nav-stat">
+        <div class="nav-stat-val" id="nav-total-dist">—</div>
+        <div class="nav-stat-lbl">Total</div>
       </div>
       <div class="nav-stat">
         <div class="nav-stat-val" id="nav-eta">—</div>
@@ -385,6 +409,12 @@
         <div class="nav-stat-val" id="nav-speed">—</div>
         <div class="nav-stat-lbl">km/h</div>
       </div>
+    </div>
+    <!-- Stop button inside HUD -->
+    <div style="padding: 0 18px 12px;">
+      <button onclick="toggleNavigation()" style="width:100%;background:rgba(255,51,102,0.15);color:var(--accent2);border:1px solid var(--accent2);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:9px;border-radius:4px;cursor:pointer;">
+        🛑 Stop Navigation
+      </button>
     </div>
   </div>
 </div>
@@ -1258,6 +1288,7 @@ let navTurns = [];            // [{lat,lng,instruction,arrow}, ...]
 let navWakeLock = null;
 let rerouteTimeout = null;
 let lastRerouteTime = 0;
+let navTotalDistM = 0;        // total route distance in metres
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GPS FUNCTIONS
@@ -1379,10 +1410,19 @@ function startNavigation() {
     return;
   }
 
+  // Compute total route distance
+  navTotalDistM = 0;
+  for (let i = 0; i < navRoute.length - 1; i++) {
+    navTotalDistM += haversineCoords(navRoute[i][0], navRoute[i][1], navRoute[i+1][0], navRoute[i+1][1]);
+  }
+
   // Generate turn-by-turn instructions
   navTurns = generateTurns(navRoute);
   navStepIndex = 0;
   navActive = true;
+
+  // Collapse settings panel on mobile
+  document.body.classList.add('nav-active');
 
   // Update UI
   const navBtn = document.getElementById('nav-btn');
@@ -1406,7 +1446,9 @@ function stopNavigation() {
   navRoute = null;
   navTurns = [];
   navStepIndex = 0;
+  navTotalDistM = 0;
 
+  document.body.classList.remove('nav-active');
   document.getElementById('nav-hud').classList.remove('visible');
   const navBtn = document.getElementById('nav-btn');
   navBtn.textContent = '🧭 Start Navigation';
@@ -1579,8 +1621,6 @@ function updateNavHUD() {
   let distToTurn = 0;
   if (gpsPosition) {
     distToTurn = haversineCoords(gpsPosition.lat, gpsPosition.lng, nextTurn.lat, nextTurn.lng);
-  } else if (navRoute[navStepIndex]) {
-    distToTurn = 0;
   }
 
   // Remaining distance on route
@@ -1590,31 +1630,43 @@ function updateNavHUD() {
   }
 
   // Format distance to turn
-  const turnDistStr = distToTurn < 50 ? 'Now' :
+  const turnDistStr = distToTurn < 50  ? 'Now' :
                       distToTurn < 1000 ? Math.round(distToTurn) + ' m' :
                       (distToTurn / 1000).toFixed(1) + ' km';
 
-  // Remaining distance
+  // Remaining
   const remainStr = remaining < 1000 ? Math.round(remaining) + ' m' :
                     (remaining / 1000).toFixed(1) + ' km';
+
+  // Total
+  const totalStr = navTotalDistM < 1000 ? Math.round(navTotalDistM) + ' m' :
+                   (navTotalDistM / 1000).toFixed(1) + ' km';
+
+  // Progress (0–100%)
+  const progressPct = navTotalDistM > 0
+    ? Math.min(100, Math.round((1 - remaining / navTotalDistM) * 100))
+    : 0;
 
   // Speed
   const speedKmh = gpsPosition?.speed != null ? Math.round(gpsPosition.speed * 3.6) : null;
   const speedStr = speedKmh != null ? speedKmh + '' : '—';
 
-  // ETA (rough estimate based on current speed or 50 km/h default for car)
-  const speedMs = gpsPosition?.speed ?? (transportMode === 'walk' ? 1.4 : transportMode === 'bike' ? 4.2 : 13.9);
+  // ETA
+  const speedMs = (gpsPosition?.speed > 0.5) ? gpsPosition.speed
+                : (transportMode === 'walk' ? 1.4 : transportMode === 'bike' ? 4.2 : 13.9);
   const etaSecs = speedMs > 0 ? remaining / speedMs : 0;
   const etaMins = Math.round(etaSecs / 60);
   const etaStr = etaMins < 1 ? '<1 min' : etaMins < 60 ? etaMins + ' min' : Math.floor(etaMins/60) + 'h ' + (etaMins%60) + 'm';
 
   // Update DOM
-  document.getElementById('nav-turn-arrow').textContent = nextTurn.arrow;
-  document.getElementById('nav-turn-text').textContent = nextTurn.instruction;
-  document.getElementById('nav-turn-dist').textContent = turnDistStr;
+  document.getElementById('nav-turn-arrow').textContent  = nextTurn.arrow;
+  document.getElementById('nav-turn-text').textContent   = nextTurn.instruction;
+  document.getElementById('nav-turn-dist').textContent   = turnDistStr;
   document.getElementById('nav-remain-dist').textContent = remainStr;
-  document.getElementById('nav-eta').textContent = etaStr;
-  document.getElementById('nav-speed').textContent = speedStr;
+  document.getElementById('nav-total-dist').textContent  = totalStr;
+  document.getElementById('nav-eta').textContent         = etaStr;
+  document.getElementById('nav-speed').textContent       = speedStr;
+  document.getElementById('nav-progress-fill').style.width = progressPct + '%';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
