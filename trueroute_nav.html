@@ -77,10 +77,8 @@
   .error-box.visible { display: block; }
 
   /* MAP AREA */
-  #map-wrap { flex: 1; position: relative; background: #0d0d18; transition: padding-bottom 0.35s ease; }
+  #map-wrap { flex: 1; position: relative; background: #0d0d18; }
   #map { width: 100%; height: 100%; background: #0d0d18; position: relative; z-index: 1; }
-  /* Push map up so HUD doesn't overlap it during navigation */
-  body.nav-active #map-wrap { padding-bottom: var(--hud-h, 160px); }
 
   /* CRITICAL FIX: Canvas needs to be ABOVE the map but allow clicks to pass through */
   #viz-canvas {
@@ -239,11 +237,23 @@
     /* Show GPS button always on mobile; nav button only once a route is ready */
     #gps-btn { display: block; }
     #nav-btn.nav-btn-ready { display: block; }
+
+    /* When nav-hud is moved to body level it becomes a flex child — give it a fixed height band */
+    body > #nav-hud {
+      position: static;
+      flex-shrink: 0;
+      border-top: 2px solid var(--accent3);
+    }
+    /* While it's still inside map-wrap (pre-nav or desktop), keep it absolute */
+    #map-wrap #nav-hud {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+    }
   }
 
   /* Leaflet overrides - keep map visible but canvas goes above */
   .leaflet-container { background: #0d0d18 !important; }
-  .leaflet-tile-pane { filter: saturate(0.7) brightness(0.85) contrast(0.95); }
+  .leaflet-tile-pane { filter: saturate(0.35) brightness(0.65) contrast(0.9); }
   .leaflet-control-zoom a { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
   .leaflet-control-attribution { background: rgba(10,10,15,0.8) !important; color: var(--muted) !important; font-size: 8px !important; }
   .leaflet-control-attribution a { color: var(--muted) !important; }
@@ -1434,18 +1444,20 @@ function startNavigation() {
   // Collapse settings panel on mobile
   document.body.classList.add('nav-active');
 
+  // On mobile: move HUD out of map-wrap to body so map fills space above it
+  const hud = document.getElementById('nav-hud');
+  if (window.matchMedia('(max-width: 700px)').matches) {
+    document.body.appendChild(hud);
+  }
+
   // Update UI
   const navBtn = document.getElementById('nav-btn');
   navBtn.textContent = '🛑 Stop Navigation';
   navBtn.classList.add('stop');
-  document.getElementById('nav-hud').classList.add('visible');
+  hud.classList.add('visible');
 
-  // Measure HUD height and set CSS var so map-wrap padding is exact
-  requestAnimationFrame(() => {
-    const hudH = document.getElementById('nav-hud').offsetHeight;
-    document.documentElement.style.setProperty('--hud-h', hudH + 'px');
-    map.invalidateSize();
-  });
+  // Let layout settle then tell Leaflet the map size changed
+  requestAnimationFrame(() => { map.invalidateSize(); });
 
   // Keep screen awake
   requestWakeLock();
@@ -1466,7 +1478,13 @@ function stopNavigation() {
   navTotalDistM = 0;
 
   document.body.classList.remove('nav-active');
-  document.getElementById('nav-hud').classList.remove('visible');
+  const hud = document.getElementById('nav-hud');
+  hud.classList.remove('visible');
+  // Move HUD back inside map-wrap if it was pulled out
+  const mapWrap = document.getElementById('map-wrap');
+  if (hud.parentElement !== mapWrap) {
+    mapWrap.appendChild(hud);
+  }
   document.documentElement.style.removeProperty('--hud-h');
   map.invalidateSize();
   const navBtn = document.getElementById('nav-btn');
