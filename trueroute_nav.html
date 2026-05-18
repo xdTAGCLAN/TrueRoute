@@ -243,7 +243,7 @@
 
   /* Leaflet overrides - keep map visible but canvas goes above */
   .leaflet-container { background: #0d0d18 !important; }
-  .leaflet-tile-pane { filter: saturate(0.7) brightness(0.9) contrast(0.95); }
+  .leaflet-tile-pane { filter: saturate(0.35) brightness(0.65) contrast(0.9); }
   .leaflet-control-zoom a { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
   .leaflet-control-attribution { background: rgba(10,10,15,0.8) !important; color: var(--muted) !important; font-size: 8px !important; }
   .leaflet-control-attribution a { color: var(--muted) !important; }
@@ -439,6 +439,7 @@ let transportMode = 'car'; // 'car' | 'bike' | 'walk'
 let bboxMode = 'auto';     // 'auto' | 'custom' | 'none'
 let bboxExtraPadM = 500;   // extra padding in metres for 'custom' mode
 let bboxRectLayer = null;  // Leaflet rectangle showing the bbox
+let diagnosticLayers = []; // layers added only on route-not-found (cleared on next search)
 
 // Canvas visualization state
 let canvas, ctx;
@@ -1142,27 +1143,27 @@ async function findRoute() {
       // Leaflet markers for the closest frontier node and the unreachable destination snap
       const closest = topFrontier[0];
       if (closest) {
-        L.circleMarker([closest.lat, closest.lng], {
+        diagnosticLayers.push(L.circleMarker([closest.lat, closest.lng], {
           radius: 10, color: '#ff9900', fillColor: '#ff9900',
           fillOpacity: 0.5, weight: 3
         }).bindPopup(
           `<b>🚧 Frontier (stuck here)</b><br>
            Dijkstra reached this node but could not continue to destination.<br>
            <small>Gap to destination: ${(closest.distToEnd).toFixed(0)} m</small>`
-        ).addTo(map).openPopup();
+        ).addTo(map).openPopup());
 
         // Dashed gap line
-        L.polyline(
+        diagnosticLayers.push(L.polyline(
           [[closest.lat, closest.lng], [endNode.lat, endNode.lng]],
           { color: '#ff3366', weight: 3, dashArray: '8 6', opacity: 0.85 }
-        ).bindTooltip('⛔ Disconnected gap').addTo(map);
+        ).bindTooltip('⛔ Disconnected gap').addTo(map));
       }
 
       // Highlight the unreachable end snap node
-      L.circleMarker([endNode.lat, endNode.lng], {
+      diagnosticLayers.push(L.circleMarker([endNode.lat, endNode.lng], {
         radius: 10, color: '#ff3366', fillColor: '#ff3366',
         fillOpacity: 0.35, weight: 3
-      }).bindPopup('<b>🔴 Destination unreachable</b><br>No connected road path leads here from your origin.').addTo(map);
+      }).bindPopup('<b>🔴 Destination unreachable</b><br>No connected road path leads here from your origin.').addTo(map));
 
       // Zoom to show both the frontier and the destination
       if (closest) {
@@ -1258,6 +1259,8 @@ function showStats(s) {
 function clearRoute() {
   if (routeLayer) { routeLayer.remove(); routeLayer = null; }
   map.eachLayer(l => { if (l instanceof L.CircleMarker) l.remove(); });
+  diagnosticLayers.forEach(l => l.remove());
+  diagnosticLayers = [];
 }
 function clearAll() {
   clearRoute(); 
