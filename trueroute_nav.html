@@ -1261,6 +1261,7 @@ function clearRoute() {
   map.eachLayer(l => { if (l instanceof L.CircleMarker) l.remove(); });
   diagnosticLayers.forEach(l => l.remove());
   diagnosticLayers = [];
+  document.getElementById('nav-btn').classList.remove('nav-btn-ready');
 }
 function clearAll() {
   clearRoute(); 
