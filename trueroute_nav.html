@@ -249,6 +249,20 @@
       position: absolute;
       bottom: 0; left: 0; right: 0;
     }
+
+    /* Ensure bottom stats row is always visible on mobile */
+    #nav-hud-bottom {
+      display: flex !important;
+      justify-content: space-around;
+      padding: 8px 12px;
+      gap: 4px;
+    }
+    .nav-stat-val { font-size: 13px !important; }
+    .nav-stat-lbl { font-size: 7px !important; }
+    #nav-hud-top { padding: 10px 14px; gap: 12px; }
+    #nav-turn-arrow { font-size: 28px; width: 38px; }
+    #nav-turn-text { font-size: 14px; }
+    #nav-turn-dist { font-size: 11px; }
   }
 
   /* Leaflet overrides - keep map visible but canvas goes above */
