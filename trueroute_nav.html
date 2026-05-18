@@ -1461,13 +1461,13 @@ function startNavigation() {
   hud.classList.add('visible');
 
   // Let layout settle then tell Leaflet the map size changed, then re-center with offset
-  requestAnimationFrame(() => {
-    map.invalidateSize();
-    if (gpsPosition) {
-      const targetLL = getOffsetCenter(gpsPosition.lat, gpsPosition.lng);
-      map.setView(targetLL, 17);
-    }
-  });
+  setTimeout(() => {
+   map.invalidateSize();
+   if (gpsPosition) {
+     const targetLL = getOffsetCenter(gpsPosition.lat, gpsPosition.lng);
+     map.setView(targetLL, 17);
+   }
+  }, 300);
 
   // Keep screen awake
   requestWakeLock();
@@ -1547,7 +1547,7 @@ function getOffsetCenter(lat, lng) {
   // We want the GPS dot to sit 65% down from the top of the visible area
   // i.e. (visibleH * 0.65) px from the top of the map container.
   // Currently setView puts it at mapH/2. Shift = mapH/2 - visibleH*0.65
-  const targetY = visibleH * 1.35;   // desired px from top of map
+  const targetY = visibleH * 0.65;   // desired px from top of map
   const currentY = mapH / 2;         // where setView would put it
   const offsetPx = currentY - targetY; // negative = need to shift center north (up)
 
