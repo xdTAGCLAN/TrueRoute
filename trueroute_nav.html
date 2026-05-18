@@ -1615,10 +1615,12 @@ function bearingDiff(b1, b2) {
 // NAV HUD UPDATE
 // ═══════════════════════════════════════════════════════════════════════════
 function updateNavHUD() {
-  if (!navRoute || !navTurns.length) return;
+  if (!navRoute || navRoute.length < 2) return;
 
-  // Find the next upcoming turn from current position
-  const nextTurn = navTurns.find(t => t.routeIdx >= navStepIndex) || navTurns[navTurns.length - 1];
+  // Find the next upcoming turn (may be empty for very short/straight routes)
+  const nextTurn = (navTurns.length > 0)
+    ? (navTurns.find(t => t.routeIdx >= navStepIndex) || navTurns[navTurns.length - 1])
+    : { arrow: '⬆️', instruction: 'Continue to destination', routeIdx: navRoute.length - 1, lat: navRoute[navRoute.length-1][0], lng: navRoute[navRoute.length-1][1] };
 
   // Distance to next turn
   let distToTurn = 0;
@@ -1626,7 +1628,7 @@ function updateNavHUD() {
     distToTurn = haversineCoords(gpsPosition.lat, gpsPosition.lng, nextTurn.lat, nextTurn.lng);
   }
 
-  // Remaining distance on route
+  // Remaining distance on route from current step
   let remaining = 0;
   for (let i = navStepIndex; i < navRoute.length - 1; i++) {
     remaining += haversineCoords(navRoute[i][0], navRoute[i][1], navRoute[i+1][0], navRoute[i+1][1]);
