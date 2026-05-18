@@ -1209,6 +1209,9 @@ async function findRoute() {
     routeLayer = L.polyline(path, { color: routeColor, weight:5, opacity:0.95, lineJoin:'round' }).addTo(map);
     map.fitBounds(routeLayer.getBounds(), { padding:[40,40] });
 
+    // Restore bbox preview on top of the route
+    updateBboxPreview();
+
     const elapsed = ((performance.now()-t0)/1000).toFixed(2);
     const distKm  = (dist[endId]/1000).toFixed(3);
 
@@ -1459,16 +1462,17 @@ function startNavigation() {
   navBtn.classList.add('stop');
   hud.classList.add('visible');
 
-  // Let layout settle then tell Leaflet the map size changed
-  requestAnimationFrame(() => { map.invalidateSize(); });
+  // Let layout settle then tell Leaflet the map size changed, then re-center with offset
+  requestAnimationFrame(() => {
+    map.invalidateSize();
+    if (gpsPosition) {
+      const targetLL = getOffsetCenter(gpsPosition.lat, gpsPosition.lng);
+      map.setView(targetLL, 17);
+    }
+  });
 
   // Keep screen awake
   requestWakeLock();
-
-  // Center map on GPS
-  if (gpsPosition) {
-    map.setView([gpsPosition.lat, gpsPosition.lng], 17);
-  }
 
   updateNavHUD();
 }
@@ -1523,9 +1527,38 @@ function updateNavigation() {
     }
     updateNavHUD();
 
-    // Follow mode: keep map centered on GPS with slight forward offset
-    map.setView([lat, lng], map.getZoom(), { animate: true, duration: 0.5 });
+    // Follow mode: center map but offset upward so GPS dot sits in the
+    // visible portion of the map (above the HUD panel)
+    const targetLL = getOffsetCenter(lat, lng);
+    map.setView(targetLL, map.getZoom(), { animate: true, duration: 0.5 });
   }
+}
+
+// Returns a LatLng shifted so that [lat,lng] appears ~65% up from the
+// bottom of the *visible* map area (i.e. above the HUD).
+function getOffsetCenter(lat, lng) {
+  const hud = document.getElementById('nav-hud');
+  const mapWrap = document.getElementById('map-wrap');
+  if (!hud || !hud.classList.contains('visible')) return L.latLng(lat, lng);
+
+  // How many px does the HUD take up?
+  const hudH = hud.getBoundingClientRect().height;
+  const mapH = mapWrap.getBoundingClientRect().height;
+  const visibleH = mapH - hudH;
+
+  // We want the GPS dot to sit 35% from the top of the visible area
+  // i.e. (visibleH * 0.35) px from the top of the map container.
+  // Currently setView puts it at mapH/2. Shift = mapH/2 - visibleH*0.35
+  const targetY = visibleH * 0.35;   // desired px from top of map
+  const currentY = mapH / 2;         // where setView would put it
+  const offsetPx = currentY - targetY; // positive = need to shift center south
+
+  if (Math.abs(offsetPx) < 5) return L.latLng(lat, lng);
+
+  // Convert pixel offset to lat degrees at current zoom
+  const containerPt = map.latLngToContainerPoint(L.latLng(lat, lng));
+  const shiftedPt = L.point(containerPt.x, containerPt.y + offsetPx);
+  return map.containerPointToLatLng(shiftedPt);
 }
 
 function findClosestRoutePoint(lat, lng, route) {
