@@ -1421,10 +1421,15 @@ function navCenter(lat, lng) {
   if (!hud || !hud.classList.contains('visible')) return L.latLng(lat, lng);
   const hudH = hud.getBoundingClientRect().height;
   if (hudH < 10) return L.latLng(lat, lng);
-  // Shift the center point south by half the HUD height in pixels,
-  // so the GPS dot ends up visually centered in the area above the HUD.
-  const pt = map.project(L.latLng(lat, lng), map.getZoom());
-  const shifted = map.unproject(L.point(pt.x, pt.y + hudH / 2), map.getZoom());
+  // Leaflet's setView places the given coord at the pixel center of the container.
+  // The HUD covers the bottom hudH px, so the visible area center is hudH/2 px
+  // above the container center. To compensate, shift the map center DOWN by hudH/2
+  // in screen pixels — that way the GPS dot lands in the middle of visible space.
+  // We work in container-pixel space (not projected world space) so zoom doesn't matter.
+  const containerPt = map.latLngToContainerPoint(L.latLng(lat, lng));
+  const shifted = map.containerPointToLatLng(
+    L.point(containerPt.x, containerPt.y + hudH / 2)
+  );
   return shifted;
 }
 
