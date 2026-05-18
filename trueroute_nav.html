@@ -77,8 +77,10 @@
   .error-box.visible { display: block; }
 
   /* MAP AREA */
-  #map-wrap { flex: 1; position: relative; background: #0d0d18; }
+  #map-wrap { flex: 1; position: relative; background: #0d0d18; transition: padding-bottom 0.35s ease; }
   #map { width: 100%; height: 100%; background: #0d0d18; position: relative; z-index: 1; }
+  /* Push map up so HUD doesn't overlap it during navigation */
+  body.nav-active #map-wrap { padding-bottom: var(--hud-h, 160px); }
 
   /* CRITICAL FIX: Canvas needs to be ABOVE the map but allow clicks to pass through */
   #viz-canvas {
@@ -1434,6 +1436,13 @@ function startNavigation() {
   navBtn.classList.add('stop');
   document.getElementById('nav-hud').classList.add('visible');
 
+  // Measure HUD height and set CSS var so map-wrap padding is exact
+  requestAnimationFrame(() => {
+    const hudH = document.getElementById('nav-hud').offsetHeight;
+    document.documentElement.style.setProperty('--hud-h', hudH + 'px');
+    map.invalidateSize();
+  });
+
   // Keep screen awake
   requestWakeLock();
 
@@ -1454,6 +1463,8 @@ function stopNavigation() {
 
   document.body.classList.remove('nav-active');
   document.getElementById('nav-hud').classList.remove('visible');
+  document.documentElement.style.removeProperty('--hud-h');
+  map.invalidateSize();
   const navBtn = document.getElementById('nav-btn');
   navBtn.textContent = '🧭 Start Navigation';
   navBtn.classList.remove('stop');
