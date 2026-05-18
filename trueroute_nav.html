@@ -167,8 +167,10 @@
     background: rgba(10,10,15,0.97); border-top: 2px solid var(--accent3);
     z-index: 600; display: none; flex-direction: column;
     backdrop-filter: blur(12px);
-    padding-bottom: env(safe-area-inset-bottom, 8px);
     padding-bottom: max(8px, env(safe-area-inset-bottom));
+    /* Prevent HUD from ever being taller than ~50% of viewport */
+    max-height: 50vh;
+    overflow: hidden;
   }
   #nav-hud.visible { display: flex; }
   #nav-hud-top {
@@ -1271,6 +1273,7 @@ function clearAll() {
   document.getElementById('status-box').classList.remove('visible');
   showError('');
   document.getElementById('run-btn').disabled = true;
+  document.getElementById('nav-btn').style.display = ''; // reset to CSS default (hidden on desktop)
   document.getElementById('map-overlay').style.display = 'block';
   updateOverlay('📍 Click map to set ORIGIN');
 }
@@ -1695,8 +1698,10 @@ async function requestWakeLock() {
 
 // Show nav button once a route exists
 function showNavButton() {
-  const btn = document.getElementById('nav-btn');
-  btn.style.display = 'block';
+  // Only show on mobile (nav features are mobile-only)
+  if (window.matchMedia('(max-width: 700px)').matches) {
+    document.getElementById('nav-btn').style.display = 'block';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
