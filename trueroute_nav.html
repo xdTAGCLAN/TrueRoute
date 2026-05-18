@@ -167,6 +167,8 @@
     background: rgba(10,10,15,0.97); border-top: 2px solid var(--accent3);
     z-index: 600; display: none; flex-direction: column;
     backdrop-filter: blur(12px);
+    padding-bottom: env(safe-area-inset-bottom, 8px);
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
   #nav-hud.visible { display: flex; }
   #nav-hud-top {
@@ -381,6 +383,13 @@
   </div>
   <!-- Navigation HUD -->
   <div id="nav-hud">
+    <!-- Stop button at top — always visible -->
+    <div style="display:flex; align-items:center; justify-content:space-between; padding: 8px 18px 0;">
+      <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">NAVIGATING</span>
+      <button onclick="toggleNavigation()" style="background:rgba(255,51,102,0.15);color:var(--accent2);border:1px solid var(--accent2);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:5px 12px;border-radius:4px;cursor:pointer;">
+        🛑 Stop
+      </button>
+    </div>
     <div id="nav-hud-top">
       <div id="nav-turn-arrow">⬆️</div>
       <div id="nav-turn-text">Head towards destination</div>
@@ -409,12 +418,6 @@
         <div class="nav-stat-val" id="nav-speed">—</div>
         <div class="nav-stat-lbl">km/h</div>
       </div>
-    </div>
-    <!-- Stop button inside HUD -->
-    <div style="padding: 0 18px 12px;">
-      <button onclick="toggleNavigation()" style="width:100%;background:rgba(255,51,102,0.15);color:var(--accent2);border:1px solid var(--accent2);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:9px;border-radius:4px;cursor:pointer;">
-        🛑 Stop Navigation
-      </button>
     </div>
   </div>
 </div>
