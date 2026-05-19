@@ -323,27 +323,6 @@
   .leaflet-control-attribution { background: rgba(10,10,15,0.8) !important; color: var(--muted) !important; font-size: 8px !important; }
   .leaflet-control-attribution a { color: var(--muted) !important; }
   .leaflet-pane, .leaflet-top, .leaflet-bottom, .leaflet-control { z-index: 200; }
-
-  /* ── Map rotation during navigation ─────────────── */
-  /* Only the Leaflet map-pane (tiles + vectors) rotates.
-     The #map container, all overlays, HUD, controls stay fixed. */
-  #map-rotate-root { width: 100%; height: 100%; }
-
-  .leaflet-map-pane-rotating {
-    /* JS sets transform: rotate() and scale() directly on .leaflet-map-pane */
-    will-change: transform;
-  }
-
-  /* North-up toggle button */
-  #northup-btn {
-    background: rgba(10,10,15,0.95); border: 1px solid var(--accent3); color: var(--accent3);
-    font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 1px;
-    padding: 7px 10px; border-radius: 4px; cursor: pointer;
-    transition: all 0.2s; backdrop-filter: blur(8px); white-space: nowrap;
-    display: none;
-  }
-  #northup-btn.visible { display: block; }
-  #northup-btn:hover { background: rgba(68,136,255,0.15); }
 </style>
 </head>
 <body>
@@ -583,7 +562,7 @@
 <div id="map-wrap">
   <div id="map-overlay">📍 Click map to set ORIGIN</div>
   <div id="reroute-banner">🔄 Rerouting…</div>
-  <div id="map-rotate-root"><div id="map"></div></div>
+  <div id="map"></div>
   <canvas id="viz-canvas"></canvas>
   <canvas id="elev-canvas" style="display:none;"></canvas>
 
@@ -593,7 +572,6 @@
     <button class="map-ctrl-btn" id="tile-satellite-btn"       onclick="setTileLayer('satellite')">🛰 Satellite</button>
     <button class="map-ctrl-btn" id="tile-hybrid-btn"          onclick="setTileLayer('hybrid')">🔀 Hybrid</button>
     <button class="map-ctrl-btn" id="theme-btn"               onclick="toggleMapTheme()">☀ Light</button>
-    <button id="northup-btn" onclick="toggleNorthUp()" title="Toggle north-up / heading-up">🧭 N↑</button>
   </div>
 
   <!-- Compass bearing -->
@@ -2268,8 +2246,8 @@ function updateGPSPosition(pos) {
     gpsMarker=L.marker([lat,lng],{icon:L.divIcon({className:'',html:`<div class="gps-dot-outer"><div class="gps-dot-inner"></div></div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:1000}).addTo(map);
   } else { gpsMarker.setLatLng([lat,lng]); }
 
-  // Update compass (only when not navigating — during nav, rotation system handles it)
-  if (heading != null && !navActive) updateCompassBearing(heading);
+  // Update compass
+  if (heading != null) updateCompassBearing(heading);
   if (navActive&&navRoute) updateNavigation();
 }
 
@@ -2284,14 +2262,11 @@ function startNavigation() {
   for(let i=0;i<navRoute.length-1;i++) navTotalDistM+=haversineCoords(navRoute[i][0],navRoute[i][1],navRoute[i+1][0],navRoute[i+1][1]);
   navTurns=generateTurns(navRoute); navStepIndex=0; navActive=true;
   document.body.classList.add('nav-active');
-  document.getElementById('map-wrap').classList.add('nav-rotating');
-  document.getElementById('northup-btn').classList.add('visible');
   const hud=document.getElementById('nav-hud');
   if(window.matchMedia('(max-width:700px)').matches) document.body.appendChild(hud);
   const navBtn=document.getElementById('nav-btn');
   navBtn.textContent='🛑 Stop Navigation'; navBtn.classList.add('stop');
   hud.classList.add('visible');
-  lastBearingPositions=[];
   setTimeout(()=>{ map.invalidateSize(); if(gpsPosition){const tll=getOffsetCenter(gpsPosition.lat,gpsPosition.lng);map.setView(tll,17);} },300);
   requestWakeLock();
   updateNavHUD();
@@ -2310,144 +2285,7 @@ function stopNavigation() {
   if(navWakeLock){navWakeLock.release();navWakeLock=null;}
   if(rerouteTimeout){clearTimeout(rerouteTimeout);rerouteTimeout=null;}
   document.getElementById('reroute-banner').style.display='none';
-  resetMapRotation();
 }
-// ── Map Rotation (heading-up during navigation) ───
-let mapRotationDeg = 0;       // current displayed rotation
-let mapRotationTarget = 0;    // smoothed target
-let mapRotationRaw = 0;       // latest computed bearing
-let rotationRafId = null;
-let northUpMode = false;      // true = always north-up
-let lastBearingPositions = []; // ring buffer for GPS-position bearing
-
-const COUNTER_ROTATE_IDS = [
-  'map-overlay','reroute-banner','nav-hud','elev-panel',
-  'map-controls','compass-wrap','share-toast','viz-legend'
-];
-
-function toggleNorthUp() {
-  northUpMode = !northUpMode;
-  const btn = document.getElementById('northup-btn');
-  if (northUpMode) {
-    btn.textContent = '🔄 Heading↑';
-    btn.style.borderColor = 'var(--accent)';
-    btn.style.color = 'var(--accent)';
-    setMapRotation(0, true);
-  } else {
-    btn.textContent = '🧭 N↑';
-    btn.style.borderColor = 'var(--accent3)';
-    btn.style.color = 'var(--accent3)';
-  }
-}
-
-function getRouteBearing(routeCoords, stepIdx) {
-  // Look ahead up to 5 points on the route for a stable bearing
-  if (!routeCoords || routeCoords.length < 2) return null;
-  const from = stepIdx;
-  const to = Math.min(stepIdx + 5, routeCoords.length - 1);
-  if (from >= to) return null;
-  return getBearing(routeCoords[from][0], routeCoords[from][1],
-                    routeCoords[to][0],   routeCoords[to][1]);
-}
-
-function getPositionBearing(lat, lng) {
-  // Derive bearing from recent GPS positions (more stable than GPS heading at low speed)
-  lastBearingPositions.push({lat, lng, t: Date.now()});
-  if (lastBearingPositions.length > 6) lastBearingPositions.shift();
-  if (lastBearingPositions.length < 2) return null;
-  const old = lastBearingPositions[0];
-  const dist = haversineCoords(old.lat, old.lng, lat, lng);
-  if (dist < 3) return null; // not enough movement
-  return getBearing(old.lat, old.lng, lat, lng);
-}
-
-function lerpAngle(current, target, alpha) {
-  // Shortest-path lerp for angles
-  let diff = target - current;
-  while (diff > 180)  diff -= 360;
-  while (diff < -180) diff += 360;
-  return current + diff * alpha;
-}
-
-function applyMapRotation() {
-  const rotRoot = document.getElementById('map-rotate-root');
-  if (!rotRoot) return;
-  rotRoot.style.transform = `rotate(${mapRotationDeg}deg)`;
-
-  // Counter-rotate overlays
-  const cr = -mapRotationDeg;
-  COUNTER_ROTATE_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.transform = `rotate(${cr}deg)`;
-  });
-
-  // Compass: needle should point north = offset by current map rotation
-  updateCompassBearing(mapRotationDeg);
-}
-
-function startRotationLoop() {
-  if (rotationRafId) return;
-  function tick() {
-    if (!navActive || northUpMode) { rotationRafId = null; return; }
-    mapRotationDeg = lerpAngle(mapRotationDeg, mapRotationTarget, 0.08);
-    applyMapRotation();
-    rotationRafId = requestAnimationFrame(tick);
-  }
-  rotationRafId = requestAnimationFrame(tick);
-}
-
-function stopRotationLoop() {
-  if (rotationRafId) { cancelAnimationFrame(rotationRafId); rotationRafId = null; }
-}
-
-function setMapRotation(deg, immediate) {
-  mapRotationTarget = deg;
-  if (immediate) {
-    mapRotationDeg = deg;
-    applyMapRotation();
-  }
-}
-
-function resetMapRotation() {
-  stopRotationLoop();
-  mapRotationDeg = 0; mapRotationTarget = 0; mapRotationRaw = 0;
-  lastBearingPositions = [];
-  const rotRoot = document.getElementById('map-rotate-root');
-  if (rotRoot) rotRoot.style.transform = '';
-  COUNTER_ROTATE_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.transform = '';
-  });
-  document.getElementById('map-wrap').classList.remove('nav-rotating');
-  document.getElementById('northup-btn').classList.remove('visible');
-  northUpMode = false;
-  const btn = document.getElementById('northup-btn');
-  btn.textContent = '🧭 N↑';
-  btn.style.borderColor = 'var(--accent3)';
-  btn.style.color = 'var(--accent3)';
-}
-
-function updateNavBearing(lat, lng) {
-  if (northUpMode) return;
-
-  // Primary: bearing from upcoming route segment (most stable)
-  let bearing = getRouteBearing(navRoute, navStepIndex);
-
-  // Fallback: bearing derived from GPS position history
-  if (bearing == null) bearing = getPositionBearing(lat, lng);
-
-  // Last resort: raw GPS heading (only if moving)
-  if (bearing == null && gpsPosition?.heading != null && (gpsPosition?.speed ?? 0) > 0.5) {
-    bearing = gpsPosition.heading;
-  }
-
-  if (bearing == null) return;
-
-  // Normalise and set as target (negate because CSS rotate is clockwise = east)
-  mapRotationTarget = -bearing;
-  startRotationLoop();
-}
-
 function updateNavigation() {
   if(!navActive||!navRoute||!gpsPosition) return;
   const {lat,lng}=gpsPosition;
@@ -2456,7 +2294,6 @@ function updateNavigation() {
   else {
     if(closestIdx>navStepIndex) navStepIndex=closestIdx;
     updateNavHUD();
-    updateNavBearing(lat, lng);
     const targetLL=getOffsetCenter(lat,lng);
     map.setView(targetLL,map.getZoom(),{animate:true,duration:0.5});
   }
