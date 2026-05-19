@@ -1273,7 +1273,7 @@ function buildBBoxAll() {
   return computeBBoxCoords(fakeA,fakeB).join(',');
 }
 
-async function fetchRoadGraph(bbox, mode='car') {
+async function fetchRoadGraph(bbox, mode='car', signal) {
   let highwayFilter;
   if (mode==='walk') {
     highwayFilter = `"highway"~"^(footway|path|steps|pedestrian|living_street|residential|unclassified|tertiary|secondary|primary|service|track)$"`;
@@ -1286,8 +1286,6 @@ async function fetchRoadGraph(bbox, mode='car') {
   // Build extra avoid filters
   let avoidFilters = `["access"!="private"]`;
   if (avoidSet.has('ferries')) avoidFilters += `["route"!="ferry"]`;
-  // Note: Overpass way filter can't easily exclude by tag presence for highways/tolls mid-query,
-  // so we filter post-build for tolls/highways using tags on elements.
 
   const wayFilter = `way[${highwayFilter}]${avoidFilters}(${bbox})`;
   const q = `[out:json][timeout:90][maxsize:134217728];(${wayFilter};);out body;>;out skel qt;`;
@@ -1299,7 +1297,7 @@ async function fetchRoadGraph(bbox, mode='car') {
   async function tryFetch(base, attempt) {
     const hostname = new URL(base).hostname;
     setStatus(`🌍 Querying ${hostname}… (attempt ${attempt})`, 8);
-    const res = await fetch(base, { method:'POST', mode:'cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(q) });
+    const res = await fetch(base, { method:'POST', mode:'cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(q), signal });
     if (!res.ok) throw new Error(`HTTP ${res.status} from ${hostname}`);
     const text = await res.text();
     if (text.trim().startsWith('<')) {
@@ -1312,10 +1310,16 @@ async function fetchRoadGraph(bbox, mode='car') {
   }
   let lastErr;
   for (const base of mirrors) {
+    if (signal && signal.aborted) throw new DOMException('Aborted','AbortError');
     for (let attempt=1; attempt<=2; attempt++) {
       try { return await tryFetch(base,attempt); }
-      catch(e) { lastErr=e; console.warn(`Mirror ${base} attempt ${attempt} failed:`,e.message); if(attempt<2){setStatus(`⏳ Retrying…`,8);await new Promise(r=>setTimeout(r,1500*attempt));} }
+      catch(e) {
+        if (e.name==='AbortError') throw e;
+        lastErr=e; console.warn(`Mirror ${base} attempt ${attempt} failed:`,e.message);
+        if(attempt<2){setStatus(`⏳ Retrying…`,8); await new Promise(r=>setTimeout(r,1500*attempt));}
+      }
     }
+    if (signal && signal.aborted) throw new DOMException('Aborted','AbortError');
     await new Promise(r=>setTimeout(r,800));
   }
   throw new Error(`All Overpass mirrors failed. Last error: ${lastErr?.message}`);
@@ -1467,8 +1471,8 @@ function stopRouteGeneration() {
 function lockGeneratingUI() {
   document.getElementById('run-btn').style.display = 'none';
   document.getElementById('stop-btn').style.display = 'block';
-  // Disable settings that can't be changed mid-generate
-  const lockIds = ['transport-row', 'avoid-section', 'algo-section', 'bbox-section', 'viz-section'];
+  // Disable settings that can't be changed mid-generate (viz toggle stays interactive)
+  const lockIds = ['transport-row', 'avoid-section', 'algo-section', 'bbox-section', 'viz-speed-wrap'];
   lockIds.forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('generating-disabled'); });
 }
 
@@ -1476,7 +1480,7 @@ function unlockGeneratingUI() {
   document.getElementById('run-btn').style.display = 'block';
   document.getElementById('stop-btn').style.display = 'none';
   document.getElementById('run-btn').disabled = !(pointA && pointB);
-  const lockIds = ['transport-row', 'avoid-section', 'algo-section', 'bbox-section', 'viz-section'];
+  const lockIds = ['transport-row', 'avoid-section', 'algo-section', 'bbox-section', 'viz-speed-wrap'];
   lockIds.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('generating-disabled'); });
 }
 
@@ -1505,7 +1509,7 @@ async function findRoute() {
 
     setStatus('🌍 Fetching road graph from OpenStreetMap…', 5);
     let osmData;
-    try { osmData = await fetchRoadGraph(buildBBoxAll(), transportMode); }
+    try { osmData = await fetchRoadGraph(buildBBoxAll(), transportMode, signal); }
     catch(e) {
       if (signal.aborted) { hideStatus(); return; }
       throw new Error('Overpass API failed: '+e.message);
@@ -1908,7 +1912,6 @@ async function fetchElevation() {
   btn.disabled = true;
 
   const coords = routeLayer.getLatLngs();
-  // Sample exactly up to 100 points (API hard limit)
   const maxSamples = 100;
   const sampled = [];
   if (coords.length <= maxSamples) {
@@ -1920,31 +1923,63 @@ async function fetchElevation() {
     }
   }
 
-  // Helper: fetch elevation via POST to avoid URL length limits
-  async function fetchElevDataset(dataset) {
-    const locStr = sampled.map(ll=>`${ll.lat.toFixed(5)},${ll.lng.toFixed(5)}`).join('|');
-    const res = await fetch(`https://api.opentopodata.org/v1/${dataset}`, {
+  const lats = sampled.map(ll => ll.lat.toFixed(5)).join(',');
+  const lngs = sampled.map(ll => ll.lng.toFixed(5)).join(',');
+
+  // Try Open-Meteo elevation API first (very reliable, no key, CORS-friendly)
+  async function tryOpenMeteo() {
+    const url = `https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Open-Meteo returned ${res.status}`);
+    const data = await res.json();
+    if (!data.elevation || !data.elevation.length) throw new Error('No elevation data from Open-Meteo');
+    return data.elevation;
+  }
+
+  // Fallback: open-elevation via POST with JSON
+  async function tryOpenElevation() {
+    const locations = sampled.map(ll => ({ latitude: parseFloat(ll.lat.toFixed(5)), longitude: parseFloat(ll.lng.toFixed(5)) }));
+    const res = await fetch('https://api.open-elevation.com/api/v1/lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ locations })
+    });
+    if (!res.ok) throw new Error(`Open-Elevation returned ${res.status}`);
+    const data = await res.json();
+    if (!data.results || !data.results.length) throw new Error('No elevation data from Open-Elevation');
+    return data.results.map(r => r.elevation != null ? r.elevation : 0);
+  }
+
+  // Last resort: opentopodata via POST
+  async function tryOpenTopoData() {
+    const locStr = sampled.map(ll => `${ll.lat.toFixed(5)},${ll.lng.toFixed(5)}`).join('|');
+    const res = await fetch('https://api.opentopodata.org/v1/srtm30m', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `locations=${encodeURIComponent(locStr)}`
     });
-    if (!res.ok) throw new Error(`Elevation API (${dataset}) returned ${res.status}`);
+    if (!res.ok) throw new Error(`OpenTopoData returned ${res.status}`);
     const data = await res.json();
-    if (!data.results || !data.results.length) throw new Error(`No elevation data returned from ${dataset}`);
+    if (!data.results || !data.results.length) throw new Error('No elevation data from OpenTopoData');
     return data.results.map(r => r.elevation != null ? r.elevation : 0);
   }
 
   try {
     let elevations;
-    try {
-      elevations = await fetchElevDataset('srtm30m');
-    } catch(e) {
-      // Fallback to ASTER dataset
-      elevations = await fetchElevDataset('aster30m');
+    const errors = [];
+    for (const [name, fn] of [['Open-Meteo', tryOpenMeteo], ['Open-Elevation', tryOpenElevation], ['OpenTopoData', tryOpenTopoData]]) {
+      try {
+        elevations = await fn();
+        break;
+      } catch(e) {
+        errors.push(`${name}: ${e.message}`);
+        console.warn(`Elevation source ${name} failed:`, e.message);
+      }
     }
+    if (!elevations) throw new Error('All elevation sources failed. ' + errors.join(' | '));
     drawElevationProfile(elevations, sampled);
   } catch(e) {
-    showError('Elevation fetch failed: ' + e.message + '. The elevation service may be temporarily unavailable.');
+    showError('Elevation fetch failed: ' + e.message);
   }
 
   btn.textContent = '📈 Elevation Profile';
