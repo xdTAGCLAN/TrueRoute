@@ -543,6 +543,26 @@
       </div>
     </div>
 
+    <hr class="divider"/>
+
+    <!-- OSM Cache -->
+    <div class="field-group">
+      <div class="field-label" style="justify-content:space-between;">
+        <span>OSM Cache</span>
+        <span id="cache-ttl-label" style="color:var(--accent3);font-size:9px;"></span>
+      </div>
+      <div id="cache-status" class="field-hint" style="color:var(--muted);">No cached areas.</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <select id="cache-ttl-select" class="field-input" style="flex:1;font-size:10px;padding:7px 8px;" onchange="onCacheTTLChange()">
+          <option value="3600000">Expire after 1 hour</option>
+          <option value="14400000" selected>Expire after 4 hours</option>
+          <option value="43200000">Expire after 12 hours</option>
+          <option value="86400000">Expire after 24 hours</option>
+        </select>
+        <button onclick="clearOsmCache()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:7px 10px;border-radius:4px;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent2)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🗑 Clear</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -751,6 +771,9 @@ function initMap() {
   setTransport(transportMode);
   // Apply default algorithm (A*)
   setAlgo('astar');
+
+  // Show cache status
+  updateCacheStatus();
 
   // Parse URL share params
   loadFromUrl();
@@ -1332,6 +1355,93 @@ function buildBBoxAll() {
   return computeBBoxCoords(fakeA,fakeB).join(',');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// OSM CACHE
+// ═══════════════════════════════════════════════════════════════════════════
+if (Date.now() - entry.ts > (window._osmCacheTTL || OSM_CACHE_TTL_MS)) {
+const OSM_CACHE_PREFIX = 'trueroute_osm_';
+const OSM_CACHE_INDEX_KEY = 'trueroute_osm_index';
+const OSM_CACHE_MAX_ENTRIES = 12; // cap entries to avoid filling localStorage
+
+function osmCacheKey(bbox, mode, ferries) {
+  // Round bbox coords to 3 decimal places (~111m) so nearby routes reuse same tile
+  const rounded = bbox.split(',').map(v => parseFloat(v).toFixed(3)).join(',');
+  return OSM_CACHE_PREFIX + mode + '_ferry' + (ferries?1:0) + '_' + rounded;
+}
+
+function osmCacheGet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    if (Date.now() - entry.ts > getOsmCacheTTL()) {
+      localStorage.removeItem(key);
+      osmCacheRemoveFromIndex(key);
+      return null;
+    }
+    return entry.data;
+  } catch(e) { return null; }
+}
+
+function osmCacheSet(key, data) {
+  try {
+    const payload = JSON.stringify({ ts: Date.now(), data });
+    // Evict oldest entries if we're at the limit
+    const index = osmCacheGetIndex();
+    if (!index.includes(key) && index.length >= OSM_CACHE_MAX_ENTRIES) {
+      const oldest = index.shift();
+      localStorage.removeItem(oldest);
+    }
+    localStorage.setItem(key, payload);
+    if (!index.includes(key)) index.push(key);
+    localStorage.setItem(OSM_CACHE_INDEX_KEY, JSON.stringify(index));
+    updateCacheStatus();
+  } catch(e) {
+    // localStorage full — evict all OSM cache entries and try once more
+    if (e.name === 'QuotaExceededError') {
+      osmCacheClear();
+      try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch(e2) { /* give up */ }
+    }
+  }
+}
+
+function osmCacheGetIndex() {
+  try { return JSON.parse(localStorage.getItem(OSM_CACHE_INDEX_KEY) || '[]'); } catch(e) { return []; }
+}
+
+function osmCacheRemoveFromIndex(key) {
+  try {
+    const index = osmCacheGetIndex().filter(k => k !== key);
+    localStorage.setItem(OSM_CACHE_INDEX_KEY, JSON.stringify(index));
+  } catch(e) {}
+}
+
+function osmCacheClear() {
+  try {
+    const index = osmCacheGetIndex();
+    index.forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem(OSM_CACHE_INDEX_KEY);
+  } catch(e) {}
+}
+
+function osmCacheStats() {
+  const index = osmCacheGetIndex();
+  let valid = 0, totalBytes = 0;
+  const now = Date.now();
+  for (const key of index) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const entry = JSON.parse(raw);
+      if (now - entry.ts <= OSM_CACHE_TTL_MS) {
+        valid++;
+        totalBytes += raw.length;
+      }
+    } catch(e) {}
+  }
+  return { count: valid, mb: (totalBytes / 1024 / 1024).toFixed(1) };
+}
+
 async function fetchRoadGraph(bbox, mode='car', signal) {
   let highwayFilter;
   if (mode==='walk') {
@@ -1342,13 +1452,25 @@ async function fetchRoadGraph(bbox, mode='car', signal) {
     highwayFilter = `"highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link|road)$"`;
   }
 
+  const includeFerries = !avoidSet.has('ferries');
+
+  // Check cache first
+  const cacheKey = osmCacheKey(bbox, mode, includeFerries);
+  const cached = osmCacheGet(cacheKey);
+  if (cached) {
+    setStatus('⚡ Loaded from cache — skipping network fetch', 20);
+    await new Promise(r => setTimeout(r, 0)); // yield to let UI update
+    showToast('⚡ Using cached road data');
+    return cached;
+  }
+
   // Build extra avoid filters
   let avoidFilters = `["access"!="private"]`;
 
   const wayFilter = `way[${highwayFilter}]${avoidFilters}(${bbox})`;
   // Also fetch ferry routes unless user explicitly avoids them
-  const ferryFilter = avoidSet.has('ferries') ? '' : `way["route"="ferry"](${bbox});relation["route"="ferry"](${bbox});`;
-  const q = `[out:json][timeout:90][maxsize:134217728];(${wayFilter};${ferryFilter});out body;>;out skel qt;`;
+  const ferryFilter = includeFerries ? `way["route"="ferry"](${bbox});relation["route"="ferry"](${bbox});` : '';
+  const q = `[out:json][timeout:90][maxsize:134217728];(${wayFilter};${ferryFilter});out body;>;out body qt;`;
   const mirrors = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
@@ -1372,7 +1494,14 @@ async function fetchRoadGraph(bbox, mode='car', signal) {
   for (const base of mirrors) {
     if (signal && signal.aborted) throw new DOMException('Aborted','AbortError');
     for (let attempt=1; attempt<=2; attempt++) {
-      try { return await tryFetch(base,attempt); }
+      try {
+        const data = await tryFetch(base, attempt);
+        // Save to cache before returning
+        setStatus('💾 Caching road data…', 22);
+        await new Promise(r => setTimeout(r, 0));
+        osmCacheSet(cacheKey, data);
+        return data;
+      }
       catch(e) {
         if (e.name==='AbortError') throw e;
         lastErr=e; console.warn(`Mirror ${base} attempt ${attempt} failed:`,e.message);
@@ -2411,7 +2540,37 @@ function getBearing(lat1,lng1,lat2,lng2){const dLng=(lng2-lng1)*Math.PI/180;cons
 function bearingDiff(b1,b2){let diff=b2-b1;while(diff>180)diff-=360;while(diff<-180)diff+=360;return diff;}
 
 // ── Nav HUD ───────────────────────────────────────
-function updateNavHUD(){
+function updateCacheStatus() {
+  const stats = osmCacheStats();
+  const el = document.getElementById('cache-status');
+  if (!el) return;
+  if (stats.count === 0) {
+    el.textContent = 'No cached areas.';
+    el.style.color = 'var(--muted)';
+  } else {
+    el.textContent = `${stats.count} area${stats.count>1?'s':''} cached · ${stats.mb} MB`;
+    el.style.color = 'var(--accent3)';
+  }
+}
+
+function clearOsmCache() {
+  osmCacheClear();
+  updateCacheStatus();
+  showToast('🗑 OSM cache cleared');
+}
+
+function onCacheTTLChange() {
+  const sel = document.getElementById('cache-ttl-select');
+  if (sel) {
+    // Update the module-level TTL — reassign via a mutable variable
+    window._osmCacheTTL = parseInt(sel.value);
+  }
+}
+
+// Allow TTL to be overridden at runtime
+function getOsmCacheTTL() {
+  return window._osmCacheTTL || OSM_CACHE_TTL_MS;
+}
   if(!navRoute||navRoute.length<2) return;
   const nextTurn=(navTurns.length>0)?(navTurns.find(t=>t.routeIdx>=navStepIndex)||navTurns[navTurns.length-1]):{arrow:'⬆️',instruction:'Continue to destination',routeIdx:navRoute.length-1,lat:navRoute[navRoute.length-1][0],lng:navRoute[navRoute.length-1][1]};
   let distToTurn=gpsPosition?haversineCoords(gpsPosition.lat,gpsPosition.lng,nextTurn.lat,nextTurn.lng):0;
