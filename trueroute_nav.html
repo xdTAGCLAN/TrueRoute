@@ -910,7 +910,10 @@ function makeWaypointIcon(idx) {
   });
 }
 
+let suppressNextClick = false;
+
 function onMapClick(e) {
+  if (suppressNextClick) { suppressNextClick = false; return; }
   if (inputMode !== 'click') return;
   const { lat, lng } = e.latlng;
   if (clickStage === 'A') {
@@ -1653,6 +1656,7 @@ function onPredownloadTouchEnd(ev) {
   map.getContainer().removeEventListener('touchend',  onPredownloadTouchEnd);
   if (!predownloadDrawStart || !predownloadTempRect) return;
   const bounds = predownloadTempRect.getBounds();
+  suppressNextClick = true;
   if (bounds.getNorth() - bounds.getSouth() < 0.001 || bounds.getEast() - bounds.getWest() < 0.001) {
     showToast('⚠️ Area too small — draw a larger rectangle');
     cancelAreaDraw(); return;
@@ -1684,6 +1688,7 @@ function onPredownloadMouseUp(e) {
   map.off('mouseup',   onPredownloadMouseUp);
   if (!predownloadDrawStart) return;
   const bounds = L.latLngBounds(predownloadDrawStart, e.latlng);
+  suppressNextClick = true; // prevent the mouseup from also firing onMapClick
   if (bounds.getNorth() - bounds.getSouth() < 0.001 || bounds.getEast() - bounds.getWest() < 0.001) {
     showToast('⚠️ Area too small — draw a larger rectangle');
     cancelAreaDraw();
