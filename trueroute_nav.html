@@ -458,6 +458,13 @@
         <span style="display:flex;justify-content:space-between;margin-top:2px;font-size:8px;"><span>← tighter</span><span>wider →</span></span>
       </div>
       <div class="field-hint" id="bbox-hint">Auto-scales padding with route distance.</div>
+      <!-- Cache status row -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+        <span id="cache-indicator" style="font-size:9px;letter-spacing:0.5px;color:var(--muted);">
+          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#5a5a7a;margin-right:5px;vertical-align:middle;"></span>No cache
+        </span>
+        <button onclick="invalidateCache()" title="Clear cached road data" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:8px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:3px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent2)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">Clear cache</button>
+      </div>
     </div>
 
     <hr class="divider"/>
@@ -670,6 +677,28 @@ let tileLayerObj = null;
 let tileLayerObjLabels = null; // for hybrid mode overlay
 let waypointCount = 0;
 let routeAbortController = null; // abort signal for route generation
+
+// ── OSM data cache ────────────────────────────────
+const osmCache = {
+  data: null,
+  bbox: null,       // [s, w, n, e] numbers
+  mode: null,
+  timestamp: 0,
+  TTL_MS: 5 * 60 * 1000  // 5 minutes
+};
+
+// Prefetch state
+let prefetchAbort = null;
+
+function bboxContains(outer, inner) {
+  // Returns true if inner bbox is fully inside outer bbox
+  return inner[0] >= outer[0] && inner[1] >= outer[1] &&
+         inner[2] <= outer[2] && inner[3] <= outer[3];
+}
+
+function getCacheStatusEl() {
+  return document.getElementById('cache-status');
+}
 
 // Canvas visualization state
 let canvas, ctx;
@@ -896,6 +925,46 @@ function setPointB(lat, lng) {
   }).bindTooltip('🎯 Destination').addTo(map);
   markerB.on('dragend', e => { const ll = e.target.getLatLng(); setPointB(ll.lat, ll.lng); });
   updatePointsDisplay(); checkReady(); updateBboxPreview(); resetRunBtn();
+
+  // Kick off a background prefetch so data is ready when user hits Route
+  if (pointA && pointB) schedulePrefetch();
+}
+
+function schedulePrefetch() {
+  // Cancel any in-progress prefetch
+  if (prefetchAbort) { prefetchAbort.abort(); prefetchAbort = null; }
+  // Small delay so rapid marker drags don't spam requests
+  clearTimeout(schedulePrefetch._timer);
+  schedulePrefetch._timer = setTimeout(startPrefetch, 600);
+}
+
+async function startPrefetch() {
+  if (!pointA || !pointB) return;
+  // Don't prefetch if we already have a valid cache covering this bbox
+  const bboxStr = buildBBoxAll();
+  const bboxArr = bboxStr.split(',').map(Number);
+  const now = Date.now();
+  if (osmCache.data &&
+      osmCache.mode === transportMode &&
+      now - osmCache.timestamp < osmCache.TTL_MS &&
+      osmCache.bbox &&
+      bboxContains(osmCache.bbox, bboxArr)) {
+    return; // already cached, nothing to do
+  }
+
+  prefetchAbort = new AbortController();
+  updateCacheIndicator('prefetch');
+  try {
+    await fetchRoadGraph(bboxStr, transportMode, prefetchAbort.signal);
+    // Data now in osmCache — findRoute() will use it instantly
+  } catch(e) {
+    if (e.name !== 'AbortError') {
+      console.warn('Prefetch failed (will retry on route):', e.message);
+      updateCacheIndicator('empty');
+    }
+  } finally {
+    prefetchAbort = null;
+  }
 }
 
 function updatePointsDisplay() {
@@ -1221,6 +1290,12 @@ function setTransport(mode) {
   // Save preference
   try { localStorage.setItem('trueroute_transport', mode); } catch(e) {}
   resetRunBtn();
+  // Cached data is mode-specific — invalidate and prefetch for new mode
+  if (osmCache.mode && osmCache.mode !== mode) {
+    osmCache.data = null; osmCache.bbox = null; osmCache.mode = null; osmCache.timestamp = 0;
+    updateCacheIndicator('empty');
+  }
+  if (pointA && pointB) schedulePrefetch();
 }
 function setBboxMode(mode) {
   bboxMode = mode;
@@ -1254,7 +1329,7 @@ function updateBboxPreview() {
 function computeBBoxCoords(a, b) {
   if (bboxMode==='none') return null;
   const distM = haversineCoords(a.lat,a.lng,b.lat,b.lng);
-  let padM = bboxMode==='auto' ? 1500 : Math.min(400,Math.max(150,distM*0.03))+bboxExtraPadM;
+  let padM = bboxMode==='auto' ? Math.max(2500, distM * 0.15) : Math.min(400,Math.max(150,distM*0.03))+bboxExtraPadM;
   const padLat = padM/111320;
   const padLng = padM/(111320*Math.cos(((a.lat+b.lat)/2)*Math.PI/180));
   return [Math.min(a.lat,b.lat)-padLat, Math.min(a.lng,b.lng)-padLng, Math.max(a.lat,b.lat)+padLat, Math.max(a.lng,b.lng)+padLng];
@@ -1333,6 +1408,22 @@ function buildBBoxAll() {
 }
 
 async function fetchRoadGraph(bbox, mode='car', signal) {
+  const bboxArr = bbox.split(',').map(Number);
+  const now = Date.now();
+
+  // ── Cache hit check ───────────────────────────────
+  if (osmCache.data &&
+      osmCache.mode === mode &&
+      now - osmCache.timestamp < osmCache.TTL_MS &&
+      osmCache.bbox &&
+      bboxContains(osmCache.bbox, bboxArr)) {
+    const ageS = Math.round((now - osmCache.timestamp) / 1000);
+    setStatus(`⚡ Using cached road data (${ageS}s old)`, 8);
+    updateCacheIndicator('hit');
+    await new Promise(r => setTimeout(r, 60)); // let status render
+    return osmCache.data;
+  }
+
   let highwayFilter;
   if (mode==='walk') {
     highwayFilter = `"highway"~"^(footway|path|steps|pedestrian|living_street|residential|unclassified|tertiary|secondary|primary|service|track)$"`;
@@ -1357,6 +1448,7 @@ async function fetchRoadGraph(bbox, mode='car', signal) {
   async function tryFetch(base, attempt) {
     const hostname = new URL(base).hostname;
     setStatus(`🌍 Querying ${hostname}… (attempt ${attempt})`, 8);
+    updateCacheIndicator('fetching');
     const res = await fetch(base, { method:'POST', mode:'cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(q), signal });
     if (!res.ok) throw new Error(`HTTP ${res.status} from ${hostname}`);
     const text = await res.text();
@@ -1372,7 +1464,18 @@ async function fetchRoadGraph(bbox, mode='car', signal) {
   for (const base of mirrors) {
     if (signal && signal.aborted) throw new DOMException('Aborted','AbortError');
     for (let attempt=1; attempt<=2; attempt++) {
-      try { return await tryFetch(base,attempt); }
+      try {
+        const data = await tryFetch(base, attempt);
+        // ── Store in cache ───────────────────────────
+        // Expand bbox slightly (~600m) so nearby reroutes also hit cache
+        const pad = 0.006;
+        osmCache.data = data;
+        osmCache.mode = mode;
+        osmCache.timestamp = Date.now();
+        osmCache.bbox = [bboxArr[0]-pad, bboxArr[1]-pad, bboxArr[2]+pad, bboxArr[3]+pad];
+        updateCacheIndicator('fresh');
+        return data;
+      }
       catch(e) {
         if (e.name==='AbortError') throw e;
         lastErr=e; console.warn(`Mirror ${base} attempt ${attempt} failed:`,e.message);
@@ -1383,6 +1486,36 @@ async function fetchRoadGraph(bbox, mode='car', signal) {
     await new Promise(r=>setTimeout(r,800));
   }
   throw new Error(`All Overpass mirrors failed. Last error: ${lastErr?.message}`);
+}
+
+function updateCacheIndicator(state) {
+  const el = document.getElementById('cache-indicator');
+  if (!el) return;
+  const configs = {
+    empty:    { text: 'No cache', color: 'var(--muted)',   dot: '#5a5a7a' },
+    fetching: { text: 'Fetching…', color: 'var(--accent3)', dot: '#4488ff' },
+    fresh:    { text: 'Cached ✓',  color: 'var(--accent)',  dot: '#00ff88' },
+    hit:      { text: '⚡ Cache hit', color: 'var(--accent)', dot: '#00ff88' },
+    prefetch: { text: 'Prefetching…', color: '#ff9900',    dot: '#ff9900' },
+    stale:    { text: 'Cache expired', color: 'var(--muted)', dot: '#5a5a7a' },
+  };
+  const cfg = configs[state] || configs.empty;
+  el.innerHTML = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${cfg.dot};margin-right:5px;vertical-align:middle;box-shadow:0 0 5px ${cfg.dot}"></span>${cfg.text}`;
+  el.style.color = cfg.color;
+}
+
+function getCacheAge() {
+  if (!osmCache.data) return null;
+  return Math.round((Date.now() - osmCache.timestamp) / 1000);
+}
+
+function invalidateCache() {
+  osmCache.data = null;
+  osmCache.bbox = null;
+  osmCache.mode = null;
+  osmCache.timestamp = 0;
+  updateCacheIndicator('empty');
+  showToast('🗑 Road data cache cleared');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
