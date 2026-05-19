@@ -57,6 +57,11 @@
   #run-btn:hover { background: #00ffaa; transform: translateY(-1px); }
   #run-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
 
+  #stop-btn { background: var(--accent2); color: #fff; border: none; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; padding: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; width: 100%; display: none; }
+  #stop-btn:hover { background: #ff6688; transform: translateY(-1px); }
+
+  .generating-disabled { opacity: 0.4; pointer-events: none; transition: opacity 0.2s; }
+
   #clear-btn { background: transparent; color: var(--muted); border: 1px solid var(--border); font-family: 'Space Mono', monospace; font-size: 10px; padding: 10px; border-radius: 4px; cursor: pointer; transition: all 0.2s; width: 100%; letter-spacing: 1px; text-transform: uppercase; }
   #clear-btn:hover { border-color: var(--accent2); color: var(--accent2); }
 
@@ -419,7 +424,7 @@
     <hr class="divider"/>
 
     <!-- Algorithm -->
-    <div class="field-group">
+    <div class="field-group" id="algo-section">
       <div class="field-label">Algorithm</div>
       <div class="mode-row">
         <button class="mode-btn active" id="algo-dijkstra" onclick="setAlgo('dijkstra')">Dijkstra</button>
@@ -431,7 +436,7 @@
     <hr class="divider"/>
 
     <!-- Bounding box -->
-    <div class="field-group">
+    <div class="field-group" id="bbox-section">
       <div class="field-label">Bounding Box <span id="bbox-size-label" style="color:var(--accent3);margin-left:4px">Auto</span></div>
       <div class="mode-row">
         <button class="mode-btn active" id="bbox-auto-btn"   onclick="setBboxMode('auto')">Auto</button>
@@ -449,7 +454,7 @@
     <hr class="divider"/>
 
     <!-- Visualization -->
-    <div class="field-group">
+    <div class="field-group" id="viz-section">
       <div class="field-label">Visualization</div>
       <div class="mode-row">
         <button class="mode-btn active" id="viz-on-btn"  onclick="setViz(true)">Live On</button>
@@ -466,6 +471,7 @@
 
     <!-- Action buttons -->
     <button id="run-btn" onclick="findRoute()" disabled>Find True Shortest Path</button>
+    <button id="stop-btn" onclick="stopRouteGeneration()">⏹ Stop Generation</button>
     <button id="clear-btn" onclick="clearAll()">Clear</button>
     <button id="gps-btn" onclick="toggleGPS()">📍 Use My GPS Location</button>
     <button id="nav-btn" onclick="toggleNavigation()">🧭 Start Navigation</button>
@@ -636,6 +642,7 @@ let mapTheme = 'dark';
 let tileLayerObj = null;
 let tileLayerObjLabels = null; // for hybrid mode overlay
 let waypointCount = 0;
+let routeAbortController = null; // abort signal for route generation
 
 // Canvas visualization state
 let canvas, ctx;
@@ -1364,7 +1371,7 @@ class MinHeap {
   get size() { return this.h.length; }
 }
 
-async function dijkstra(adj, nodes, startId, endId, totalNodes, onProgress, edgeLog, pathLog) {
+async function dijkstra(adj, nodes, startId, endId, totalNodes, onProgress, edgeLog, pathLog, signal) {
   const dist={}, prev={};
   const pq=new MinHeap();
   dist[startId]=0; pq.push({d:0,id:startId});
@@ -1387,6 +1394,7 @@ async function dijkstra(adj, nodes, startId, endId, totalNodes, onProgress, edge
     }
     const doYield=vizEnabled?sinceYield>=vizYieldEvery:Date.now()-lastYieldMs>80;
     if (doYield) {
+      if (signal && signal.aborted) return {dist,prev,visited};
       if (vizEnabled&&dist[endId]!==undefined) { vizBestPath=tracePath(prev,endId,nodes); if(pathLog)pathLog.push(vizBestPath.slice()); }
       scheduleRedraw(); onProgress(visited,totalNodes);
       await new Promise(r=>setTimeout(r,0)); lastYieldMs=Date.now(); sinceYield=0;
@@ -1398,7 +1406,7 @@ async function dijkstra(adj, nodes, startId, endId, totalNodes, onProgress, edge
 // ═══════════════════════════════════════════════════════════════════════════
 // A★
 // ═══════════════════════════════════════════════════════════════════════════
-async function astar(adj, nodes, startId, endId, totalNodes, onProgress, edgeLog, pathLog) {
+async function astar(adj, nodes, startId, endId, totalNodes, onProgress, edgeLog, pathLog, signal) {
   const endNode = nodes[endId];
   const g={}, prev={};
   g[startId]=0;
@@ -1431,6 +1439,7 @@ async function astar(adj, nodes, startId, endId, totalNodes, onProgress, edgeLog
     }
     const doYield=vizEnabled?sinceYield>=vizYieldEvery:Date.now()-lastYieldMs>80;
     if (doYield) {
+      if (signal && signal.aborted) return {dist:g, prev, visited};
       if (vizEnabled&&g[endId]!==undefined) { vizBestPath=tracePath(prev,endId,nodes); if(pathLog)pathLog.push(vizBestPath.slice()); }
       scheduleRedraw(); onProgress(visited,totalNodes);
       await new Promise(r=>setTimeout(r,0)); lastYieldMs=Date.now(); sinceYield=0;
@@ -1446,8 +1455,32 @@ function tracePath(prev, endId, nodes) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MAIN ROUTE FINDING
+// STOP ROUTE GENERATION
 // ═══════════════════════════════════════════════════════════════════════════
+function stopRouteGeneration() {
+  if (routeAbortController) {
+    routeAbortController.abort();
+    routeAbortController = null;
+  }
+}
+
+function lockGeneratingUI() {
+  document.getElementById('run-btn').style.display = 'none';
+  document.getElementById('stop-btn').style.display = 'block';
+  // Disable settings that can't be changed mid-generate
+  const lockIds = ['transport-row', 'avoid-section', 'algo-section', 'bbox-section', 'viz-section'];
+  lockIds.forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('generating-disabled'); });
+}
+
+function unlockGeneratingUI() {
+  document.getElementById('run-btn').style.display = 'block';
+  document.getElementById('stop-btn').style.display = 'none';
+  document.getElementById('run-btn').disabled = !(pointA && pointB);
+  const lockIds = ['transport-row', 'avoid-section', 'algo-section', 'bbox-section', 'viz-section'];
+  lockIds.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('generating-disabled'); });
+}
+
+
 async function findRoute() {
   if (!pointA||!pointB) return;
   clearRoute(); clearCanvas(); showError('');
@@ -1455,9 +1488,13 @@ async function findRoute() {
   document.getElementById('replay-panel').classList.remove('visible');
   document.getElementById('post-route-actions').style.display = 'none';
   document.getElementById('post-route-divider').style.display = 'none';
-  document.getElementById('run-btn').disabled = true;
   closeElevation();
   const t0=performance.now();
+
+  // Set up abort controller
+  routeAbortController = new AbortController();
+  const signal = routeAbortController.signal;
+  lockGeneratingUI();
 
   // All stop points: A → (waypoints) → B
   const stopPoints = [pointA, ...waypoints, pointB];
@@ -1469,13 +1506,19 @@ async function findRoute() {
     setStatus('🌍 Fetching road graph from OpenStreetMap…', 5);
     let osmData;
     try { osmData = await fetchRoadGraph(buildBBoxAll(), transportMode); }
-    catch(e) { throw new Error('Overpass API failed: '+e.message); }
+    catch(e) {
+      if (signal.aborted) { hideStatus(); return; }
+      throw new Error('Overpass API failed: '+e.message);
+    }
+
+    if (signal.aborted) { hideStatus(); return; }
 
     const nodeCount=osmData.elements.filter(e=>e.type==='node').length;
     const wayCount=osmData.elements.filter(e=>e.type==='way').length;
 
     setStatus(`🔧 Building graph… (${nodeCount.toLocaleString()} nodes, ${wayCount.toLocaleString()} ways)`, 25);
     await new Promise(r=>setTimeout(r,0));
+    if (signal.aborted) { hideStatus(); return; }
     const {nodes,adj}=buildGraph(osmData,transportMode);
     const totalNodes=Object.keys(nodes).length;
     if (totalNodes===0) throw new Error('No road data found in this area.');
@@ -1486,6 +1529,7 @@ async function findRoute() {
     // Snap all stop points
     setStatus('📍 Snapping to nearest road nodes…', 35);
     await new Promise(r=>setTimeout(r,0));
+    if (signal.aborted) { hideStatus(); return; }
     const snappedIds = stopPoints.map(pt => { const id=snapToNode(nodes,pt); if(!id)throw new Error('Could not snap point to road network.'); return id; });
 
     // Show snap rings for all
@@ -1508,6 +1552,7 @@ async function findRoute() {
     const allEdgeLog=[], allPathLog=[];
 
     for (let seg=0; seg<snappedIds.length-1; seg++) {
+      if (signal.aborted) { hideStatus(); return; }
       const segStart=snappedIds[seg], segEnd=snappedIds[seg+1];
       const segLabel = `${seg+1}/${snappedIds.length-1}`;
       setStatus(`⚡ ${algoLabel} — segment ${segLabel} (${totalNodes.toLocaleString()} nodes)…`, 45+Math.round((seg/(snappedIds.length-1))*40));
@@ -1516,9 +1561,12 @@ async function findRoute() {
       const edgeLog=[], pathLog=[];
       const searchFn = algorithmMode==='astar' ? astar : dijkstra;
       const {dist,prev,visited} = await searchFn(adj,nodes,segStart,segEnd,totalNodes,(v,total)=>{
+        if (signal.aborted) return;
         const pct=45+Math.round((seg/(snappedIds.length-1))*40)+Math.round((v/total)*40/(snappedIds.length-1));
         setStatus(`⚡ ${algoLabel} exploring (seg ${segLabel})… ${v.toLocaleString()} nodes`,Math.min(pct,90));
-      }, edgeLog, pathLog);
+      }, edgeLog, pathLog, signal);
+
+      if (signal.aborted) { hideStatus(); return; }
 
       if (dist[segEnd]===undefined||dist[segEnd]===Infinity) {
         // Run diagnostics for this segment
@@ -1573,8 +1621,13 @@ async function findRoute() {
     overlay.style.opacity='1';
     setTimeout(()=>{overlay.style.opacity='0';setTimeout(()=>{overlay.style.background='';overlay.style.borderColor='';},1000);},2000);
 
-  } catch(e) { hideStatus(); showError(e.message||String(e)); console.error(e); }
-  document.getElementById('run-btn').disabled=false;
+  } catch(e) {
+    if (signal && signal.aborted) { hideStatus(); }
+    else { hideStatus(); showError(e.message||String(e)); console.error(e); }
+  } finally {
+    routeAbortController = null;
+    unlockGeneratingUI();
+  }
 }
 
 function handleDisconnected(dist, nodes, endId) {
@@ -1861,37 +1914,37 @@ async function fetchElevation() {
   if (coords.length <= maxSamples) {
     sampled.push(...coords);
   } else {
-    // Pick maxSamples evenly-spaced indices, always including first and last
     for (let i = 0; i < maxSamples; i++) {
       const idx = Math.round(i * (coords.length - 1) / (maxSamples - 1));
       sampled.push(coords[idx]);
     }
   }
 
-  try {
-    // Use open-topo-data SRTM30M (free, no key, reliable)
+  // Helper: fetch elevation via POST to avoid URL length limits
+  async function fetchElevDataset(dataset) {
     const locStr = sampled.map(ll=>`${ll.lat.toFixed(5)},${ll.lng.toFixed(5)}`).join('|');
-    const res = await fetch(`https://api.opentopodata.org/v1/srtm30m?locations=${encodeURIComponent(locStr)}`, {
-      headers: {'Accept':'application/json'}
+    const res = await fetch(`https://api.opentopodata.org/v1/${dataset}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `locations=${encodeURIComponent(locStr)}`
     });
-    if (!res.ok) throw new Error('Elevation API returned '+res.status);
+    if (!res.ok) throw new Error(`Elevation API (${dataset}) returned ${res.status}`);
     const data = await res.json();
-    if (!data.results || !data.results.length) throw new Error('No elevation data returned');
-    const elevations = data.results.map(r => r.elevation != null ? r.elevation : 0);
+    if (!data.results || !data.results.length) throw new Error(`No elevation data returned from ${dataset}`);
+    return data.results.map(r => r.elevation != null ? r.elevation : 0);
+  }
+
+  try {
+    let elevations;
+    try {
+      elevations = await fetchElevDataset('srtm30m');
+    } catch(e) {
+      // Fallback to ASTER dataset
+      elevations = await fetchElevDataset('aster30m');
+    }
     drawElevationProfile(elevations, sampled);
   } catch(e) {
-    // Fallback: try ASTER dataset
-    try {
-      const locStr = sampled.map(ll=>`${ll.lat.toFixed(5)},${ll.lng.toFixed(5)}`).join('|');
-      const res2 = await fetch(`https://api.opentopodata.org/v1/aster30m?locations=${encodeURIComponent(locStr)}`);
-      if (!res2.ok) throw new Error('Fallback elevation API returned '+res2.status);
-      const data2 = await res2.json();
-      if (!data2.results || !data2.results.length) throw new Error('No elevation data from fallback');
-      const elevations2 = data2.results.map(r => r.elevation != null ? r.elevation : 0);
-      drawElevationProfile(elevations2, sampled);
-    } catch(e2) {
-      showError('Elevation fetch failed: '+e2.message+'. The elevation service may be temporarily unavailable.');
-    }
+    showError('Elevation fetch failed: ' + e.message + '. The elevation service may be temporarily unavailable.');
   }
 
   btn.textContent = '📈 Elevation Profile';
