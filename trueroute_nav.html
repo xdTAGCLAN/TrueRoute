@@ -846,7 +846,7 @@ function onMapClick(e) {
     document.getElementById('click-swap-row').style.display = 'block';
     // Zoom to show both points
     if (pointA && pointB) {
-      map.fitBounds([[pointA.lat, pointA.lng],[pointB.lat, pointB.lng]], {padding:[100,100], animate:true});
+      map.fitBounds([[pointA.lat, pointA.lng],[pointB.lat, pointB.lng]], {padding:[90,90], animate:true});
     }
     // Show hint about adding more waypoints
     updateOverlay('➕ Click map to add waypoints');
