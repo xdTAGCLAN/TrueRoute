@@ -56,6 +56,8 @@
   #run-btn { background: var(--accent); color: #000; border: none; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; padding: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; width: 100%; }
   #run-btn:hover { background: #00ffaa; transform: translateY(-1px); }
   #run-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+  #run-btn.route-done { background: var(--border); color: var(--muted); border: 1px solid var(--muted); cursor: pointer; }
+  #run-btn.route-done:hover { background: #2a2a3a; color: var(--text); transform: none; }
 
   #stop-btn { background: var(--accent2); color: #fff; border: none; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; padding: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; width: 100%; display: none; }
   #stop-btn:hover { background: #ff6688; transform: translateY(-1px); }
@@ -278,17 +280,6 @@
   .replay-btn.active { border-color: var(--accent3); color: var(--accent3); background: rgba(68,136,255,0.1); }
   #replay-scrubber { width: 100%; accent-color: var(--accent3); }
 
-  /* ── NEW: Recent routes ──────────────────────────── */
-  #recent-routes-list { display: flex; flex-direction: column; gap: 6px; }
-  .recent-route-item { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
-  .recent-route-item:hover { border-color: var(--accent3); }
-  .recent-route-info { flex: 1; }
-  .recent-route-name { font-size: 10px; color: var(--text); margin-bottom: 2px; }
-  .recent-route-meta { font-size: 9px; color: var(--muted); }
-  .recent-route-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 6px; }
-  .recent-route-del:hover { color: var(--accent2); }
-  #no-recent { font-size: 9px; color: var(--muted); font-style: italic; }
-
   /* ── NEW: Share toast ────────────────────────────── */
   #share-toast {
     position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
@@ -300,6 +291,7 @@
 
   /* Mobile-only elements */
   #gps-btn, #nav-btn { display: none; }
+  #auto-reroute-toggle { display: none !important; } /* hidden on desktop */
 
   /* Mobile layout */
   @media (max-width: 700px) {
@@ -310,6 +302,7 @@
     :root { --panel-w: 100%; }
     #gps-btn { display: block; }
     #nav-btn.nav-btn-ready { display: block; }
+    #auto-reroute-toggle { display: flex !important; }
     body > #nav-hud { position: static; flex-shrink: 0; border-top: 2px solid var(--accent3); }
     #map-wrap #nav-hud { position: absolute; bottom: 0; left: 0; right: 0; }
     #map-controls { top: auto; bottom: 80px; right: 8px; }
@@ -330,7 +323,7 @@
 <div id="panel">
   <div id="panel-header">
     <div class="logo">True<span>Route</span></div>
-    <div class="tagline" id="algo-tagline">OSM Exhaustive Pathfinder · Dijkstra</div>
+    <div class="tagline" id="algo-tagline">OSM Pathfinder · A★ Heuristic</div>
   </div>
 
   <div id="panel-body">
@@ -345,7 +338,7 @@
     </div>
 
     <div id="click-instructions" class="field-group">
-      <div class="field-hint"><b style="color:var(--accent)">Click on the map</b> to set origin (green), then click again for destination (red).</div>
+      <div class="field-hint"><b style="color:var(--accent)">Click on the map</b> to set origin (green), then destination (red). Further clicks add waypoints.</div>
     </div>
 
     <div id="text-inputs" class="field-group" style="display:none; gap:12px;">
@@ -443,10 +436,10 @@
     <div class="field-group" id="algo-section">
       <div class="field-label">Algorithm</div>
       <div class="mode-row">
-        <button class="mode-btn active" id="algo-dijkstra" onclick="setAlgo('dijkstra')">Dijkstra</button>
-        <button class="mode-btn" id="algo-astar"           onclick="setAlgo('astar')">A★ (faster)</button>
+        <button class="mode-btn" id="algo-dijkstra" onclick="setAlgo('dijkstra')">Dijkstra</button>
+        <button class="mode-btn active" id="algo-astar"           onclick="setAlgo('astar')">A★ (faster)</button>
       </div>
-      <div class="field-hint" id="algo-hint">Downloads full OSM graph, runs <b style="color:var(--text)">Dijkstra</b> exhaustively — no shortcuts.</div>
+      <div class="field-hint" id="algo-hint">Runs <b style="color:var(--text)">A★</b> with a Haversine heuristic — much faster, still optimal.</div>
     </div>
 
     <hr class="divider"/>
@@ -550,18 +543,19 @@
       </div>
     </div>
 
-    <!-- NEW: Recent routes -->
-    <div class="field-group">
-      <div class="field-label">Recent Routes</div>
-      <div id="recent-routes-list"></div>
-    </div>
-
   </div>
 </div>
 
 <div id="map-wrap">
   <div id="map-overlay">📍 Click map to set ORIGIN</div>
   <div id="reroute-banner">🔄 Rerouting…</div>
+  <div id="reroute-prompt" style="position:absolute;top:55px;left:50%;transform:translateX(-50%);background:rgba(10,10,15,0.97);border:1px solid #ff9900;color:#ff9900;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1px;padding:10px 16px;border-radius:8px;z-index:600;display:none;white-space:nowrap;backdrop-filter:blur(8px);text-align:center;gap:8px;flex-direction:column;align-items:center;">
+    <span>⚠️ Off route — reroute?</span>
+    <div style="display:flex;gap:8px;">
+      <button onclick="confirmReroute()" style="background:#ff9900;color:#000;border:none;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;padding:5px 14px;border-radius:4px;cursor:pointer;font-weight:bold;">Reroute</button>
+      <button onclick="dismissReroutePrompt()" style="background:transparent;color:var(--muted);border:1px solid var(--border);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;padding:5px 14px;border-radius:4px;cursor:pointer;">Ignore</button>
+    </div>
+  </div>
   <div id="map"></div>
   <canvas id="viz-canvas"></canvas>
   <canvas id="elev-canvas" style="display:none;"></canvas>
@@ -621,7 +615,15 @@
   <div id="nav-hud">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px 0;">
       <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">NAVIGATING</span>
-      <button onclick="toggleNavigation()" style="background:rgba(255,51,102,0.15);color:var(--accent2);border:1px solid var(--accent2);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:4px;cursor:pointer;">🛑 Stop</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div id="auto-reroute-toggle" style="display:flex;align-items:center;gap:5px;cursor:pointer;" onclick="toggleAutoReroute()" title="Toggle automatic rerouting">
+          <span style="font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);">Auto-reroute</span>
+          <div id="auto-reroute-switch" style="width:30px;height:15px;border-radius:8px;background:var(--accent3);position:relative;transition:background 0.2s;flex-shrink:0;">
+            <div id="auto-reroute-knob" style="position:absolute;top:2px;left:16px;width:11px;height:11px;border-radius:50%;background:#fff;transition:left 0.2s;"></div>
+          </div>
+        </div>
+        <button onclick="toggleNavigation()" style="background:rgba(255,51,102,0.15);color:var(--accent2);border:1px solid var(--accent2);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:4px;cursor:pointer;">🛑 Stop</button>
+      </div>
     </div>
     <div id="nav-hud-top">
       <div id="nav-turn-arrow">⬆️</div>
@@ -655,8 +657,8 @@ let inputMode = 'click';
 let clickStage = 'A';
 let vizEnabled = true;
 let vizYieldEvery = 20;
-let transportMode = 'car';
-let algorithmMode = 'dijkstra'; // 'dijkstra' | 'astar'
+let transportMode = localStorage.getItem('trueroute_transport') || 'car';
+let algorithmMode = 'astar'; // 'dijkstra' | 'astar'
 let bboxMode = 'auto';
 let bboxExtraPadM = 500;
 let bboxRectLayer = null;
@@ -745,8 +747,10 @@ function initMap() {
   const label  = document.getElementById('viz-speed-label');
   slider.addEventListener('input', () => { vizYieldEvery = parseInt(slider.value); label.textContent = vizYieldEvery; });
 
-  // Load recent routes from localStorage
-  renderRecentRoutes();
+  // Apply saved transport mode
+  setTransport(transportMode);
+  // Apply default algorithm (A*)
+  setAlgo('astar');
 
   // Parse URL share params
   loadFromUrl();
@@ -836,10 +840,29 @@ function onMapClick(e) {
     document.getElementById('click-swap-row').style.display = 'none';
   } else if (clickStage === 'B') {
     setPointB(lat, lng);
-    clickStage = 'done';
+    clickStage = 'waypoint'; // now clicking adds waypoints
     document.getElementById('map-overlay').style.opacity = '0';
     setTimeout(() => { document.getElementById('map-overlay').style.display = 'none'; }, 500);
     document.getElementById('click-swap-row').style.display = 'block';
+    // Zoom to show both points
+    if (pointA && pointB) {
+      map.fitBounds([[pointA.lat, pointA.lng],[pointB.lat, pointB.lng]], {padding:[60,60], animate:true});
+    }
+    // Show hint about adding more waypoints
+    updateOverlay('➕ Click map to add waypoints');
+    document.getElementById('map-overlay').style.display = 'block';
+    document.getElementById('map-overlay').style.opacity = '1';
+    setTimeout(() => { document.getElementById('map-overlay').style.opacity = '0'; setTimeout(() => { document.getElementById('map-overlay').style.display = 'none'; }, 500); }, 2500);
+  } else if (clickStage === 'waypoint') {
+    // Add additional waypoints by clicking
+    const newWp = { lat, lng };
+    waypoints.push(newWp);
+    const wpIdx = waypoints.length - 1;
+    const m = L.marker([lat, lng], { icon: makeWaypointIcon(wpIdx), draggable: true }).bindTooltip(`WP${wpIdx+1}`).addTo(map);
+    m.on('dragend', e => { const ll = e.target.getLatLng(); waypoints[wpIdx] = { lat: ll.lat, lng: ll.lng }; updatePointsDisplay(); });
+    waypointMarkers.push(m);
+    updatePointsDisplay();
+    resetRunBtn();
   }
 }
 
@@ -847,6 +870,11 @@ function makeMarkerDraggable(marker, callback) {
   marker.options.draggable = true;
   // Re-create as draggable
   return marker;
+}
+
+function resetRunBtn() {
+  const btn = document.getElementById('run-btn');
+  if (btn) { btn.classList.remove('route-done'); btn.title = ''; }
 }
 
 function setPointA(lat, lng) {
@@ -857,7 +885,7 @@ function setPointA(lat, lng) {
     draggable: true
   }).bindTooltip('🏁 Origin').addTo(map);
   markerA.on('dragend', e => { const ll = e.target.getLatLng(); setPointA(ll.lat, ll.lng); });
-  updatePointsDisplay(); checkReady(); updateBboxPreview();
+  updatePointsDisplay(); checkReady(); updateBboxPreview(); resetRunBtn();
 }
 function setPointB(lat, lng) {
   pointB = { lat, lng };
@@ -867,7 +895,7 @@ function setPointB(lat, lng) {
     draggable: true
   }).bindTooltip('🎯 Destination').addTo(map);
   markerB.on('dragend', e => { const ll = e.target.getLatLng(); setPointB(ll.lat, ll.lng); });
-  updatePointsDisplay(); checkReady(); updateBboxPreview();
+  updatePointsDisplay(); checkReady(); updateBboxPreview(); resetRunBtn();
 }
 
 function updatePointsDisplay() {
@@ -959,6 +987,7 @@ function toggleAvoid(key) {
   if (avoidSet.has(key)) avoidSet.delete(key);
   else avoidSet.add(key);
   document.getElementById(`avoid-${key}`).classList.toggle('active', avoidSet.has(key));
+  resetRunBtn();
 }
 
 // Advanced road type avoidance
@@ -989,6 +1018,7 @@ function setAlgo(mode) {
   document.getElementById('algo-tagline').textContent = mode === 'dijkstra'
     ? 'OSM Exhaustive Pathfinder · Dijkstra'
     : 'OSM Pathfinder · A★ Heuristic';
+  resetRunBtn();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1188,6 +1218,9 @@ function resetReplay() {
 function setTransport(mode) {
   transportMode = mode;
   ['car','bike','walk'].forEach(m => document.getElementById(`tm-${m}`).classList.toggle('active', m===mode));
+  // Save preference
+  try { localStorage.setItem('trueroute_transport', mode); } catch(e) {}
+  resetRunBtn();
 }
 function setBboxMode(mode) {
   bboxMode = mode;
@@ -1201,6 +1234,7 @@ function setBboxMode(mode) {
   document.getElementById('bbox-hint').textContent = hints[mode];
   document.getElementById('bbox-size-label').textContent = mode==='auto'?'Auto':mode==='none'?'Off':bboxExtraPadM>=1000?(bboxExtraPadM/1000).toFixed(1)+'km':bboxExtraPadM+'m';
   updateBboxPreview();
+  resetRunBtn();
 }
 function onBboxSlider() {
   bboxExtraPadM = parseInt(document.getElementById('bbox-pad').value);
@@ -1310,10 +1344,11 @@ async function fetchRoadGraph(bbox, mode='car', signal) {
 
   // Build extra avoid filters
   let avoidFilters = `["access"!="private"]`;
-  if (avoidSet.has('ferries')) avoidFilters += `["route"!="ferry"]`;
 
   const wayFilter = `way[${highwayFilter}]${avoidFilters}(${bbox})`;
-  const q = `[out:json][timeout:90][maxsize:134217728];(${wayFilter};);out body;>;out skel qt;`;
+  // Also fetch ferry routes unless user explicitly avoids them
+  const ferryFilter = avoidSet.has('ferries') ? '' : `way["route"="ferry"](${bbox});relation["route"="ferry"](${bbox});`;
+  const q = `[out:json][timeout:90][maxsize:134217728];(${wayFilter};${ferryFilter});out body;>;out skel qt;`;
   const mirrors = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
@@ -1362,21 +1397,30 @@ function buildGraph(osmData, mode='car') {
   for (const el of osmData.elements) {
     if (el.type!=='way') continue;
     const tags = el.tags || {};
+    const isFerry = tags.route === 'ferry';
     // Apply avoid filters post-fetch
-    if (avoidSet.has('highways') && (tags.highway==='motorway'||tags.highway==='motorway_link'||tags.highway==='trunk'||tags.highway==='trunk_link')) continue;
-    if (avoidSet.has('tolls') && tags.toll==='yes') continue;
-    if (avoidSet.has('ferries') && tags.route==='ferry') continue;
-    if (avoidRoadTypes.size > 0 && tags.highway && avoidRoadTypes.has(tags.highway)) continue;
+    if (avoidSet.has('ferries') && isFerry) continue;
+    if (!isFerry) {
+      if (avoidSet.has('highways') && (tags.highway==='motorway'||tags.highway==='motorway_link'||tags.highway==='trunk'||tags.highway==='trunk_link')) continue;
+      if (avoidSet.has('tolls') && tags.toll==='yes') continue;
+      if (avoidRoadTypes.size > 0 && tags.highway && avoidRoadTypes.has(tags.highway)) continue;
+    }
     const nds=el.nodes;
     const ow=!ignoreOneway&&(tags.oneway==='yes'||tags.oneway==='1'||tags.junction==='roundabout'||tags.highway==='motorway');
     const owr=!ignoreOneway&&tags.oneway==='-1';
+    // Ferry routes are bidirectional by default
+    const ferryOw = false;
+    const useOw = isFerry ? ferryOw : ow;
+    const useOwr = isFerry ? false : owr;
     for (let i=0;i<nds.length-1;i++) {
       const u=nds[i],v=nds[i+1];
       if (!nodes[u]||!nodes[v]) continue;
       const d=haversine(nodes[u],nodes[v]);
-      if (!owr)       adj[u].push({to:v,dist:d});
-      if (!ow&&!owr)  adj[v].push({to:u,dist:d});
-      if (owr)        adj[v].push({to:u,dist:d});
+      // Ferries get a small cost penalty to prefer road routes when available
+      const cost = isFerry ? d * 1.2 : d;
+      if (!useOwr)       adj[u].push({to:v,dist:cost});
+      if (!useOw&&!useOwr) adj[v].push({to:u,dist:cost});
+      if (useOwr)        adj[v].push({to:u,dist:cost});
     }
   }
   return {nodes,adj};
@@ -1637,10 +1681,12 @@ async function findRoute() {
     document.getElementById('post-route-divider').style.display = 'block';
     document.getElementById('post-route-actions').style.display = 'flex';
 
-    // Save to recent routes
-    saveRecentRoute(pointA, pointB, distKm, transportMode);
-
     showNavButton();
+
+    // Mark run button as route-done
+    const runBtn = document.getElementById('run-btn');
+    runBtn.classList.add('route-done');
+    runBtn.title = 'Route already found — change settings to recalculate';
 
     // Flash success
     const overlay=document.getElementById('map-overlay');
@@ -1859,72 +1905,6 @@ function showToast(msg) {
   const el=document.getElementById('share-toast');
   el.textContent=msg; el.style.display='block';
   setTimeout(()=>{ el.style.display='none'; },3000);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// RECENT ROUTES
-// ═══════════════════════════════════════════════════════════════════════════
-function saveRecentRoute(a, b, distKm, mode) {
-  try {
-    const routes = JSON.parse(localStorage.getItem('trueroute_recent')||'[]');
-    const entry = {
-      id: Date.now(),
-      alat:a.lat.toFixed(5), alng:a.lng.toFixed(5),
-      blat:b.lat.toFixed(5), blng:b.lng.toFixed(5),
-      distKm, mode,
-      ts: Date.now()
-    };
-    routes.unshift(entry);
-    const trimmed = routes.slice(0, 5); // keep last 5
-    localStorage.setItem('trueroute_recent', JSON.stringify(trimmed));
-    renderRecentRoutes();
-  } catch(e) { /* localStorage may be blocked */ }
-}
-
-function renderRecentRoutes() {
-  const container = document.getElementById('recent-routes-list');
-  let routes = [];
-  try { routes = JSON.parse(localStorage.getItem('trueroute_recent')||'[]'); } catch(e) {}
-  if (!routes.length) {
-    container.innerHTML = '<div id="no-recent" class="field-hint">No recent routes yet.</div>';
-    return;
-  }
-  container.innerHTML = routes.map(r => {
-    const modeEmoji = r.mode==='bike'?'🚲':r.mode==='walk'?'🚶':'🚗';
-    const date = new Date(r.ts).toLocaleDateString();
-    return `<div class="recent-route-item" onclick="loadRecentRoute(${r.id})">
-      <div class="recent-route-info">
-        <div class="recent-route-name">${modeEmoji} ${r.distKm} km</div>
-        <div class="recent-route-meta">${parseFloat(r.alat).toFixed(3)},${parseFloat(r.alng).toFixed(3)} → ${parseFloat(r.blat).toFixed(3)},${parseFloat(r.blng).toFixed(3)} · ${date}</div>
-      </div>
-      <button class="recent-route-del" onclick="deleteRecentRoute(event,${r.id})" title="Remove">✕</button>
-    </div>`;
-  }).join('');
-}
-
-function loadRecentRoute(id) {
-  try {
-    const routes = JSON.parse(localStorage.getItem('trueroute_recent')||'[]');
-    const r = routes.find(x=>x.id===id);
-    if (!r) return;
-    setPointA(parseFloat(r.alat),parseFloat(r.alng));
-    setPointB(parseFloat(r.blat),parseFloat(r.blng));
-    setTransport(r.mode);
-    map.fitBounds([[parseFloat(r.alat),parseFloat(r.alng)],[parseFloat(r.blat),parseFloat(r.blng)]],{padding:[60,60]});
-    clickStage='done';
-    document.getElementById('map-overlay').style.display='none';
-    document.getElementById('click-swap-row').style.display='block';
-  } catch(e) {}
-}
-
-function deleteRecentRoute(e, id) {
-  e.stopPropagation();
-  try {
-    let routes = JSON.parse(localStorage.getItem('trueroute_recent')||'[]');
-    routes = routes.filter(r=>r.id!==id);
-    localStorage.setItem('trueroute_recent', JSON.stringify(routes));
-    renderRecentRoutes();
-  } catch(e) {}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2188,6 +2168,8 @@ function clearAll() {
   document.getElementById('click-swap-row').style.display='none';
   showError('');
   document.getElementById('run-btn').disabled=true;
+  const runBtn=document.getElementById('run-btn');
+  runBtn.classList.remove('route-done'); runBtn.title='';
   document.getElementById('nav-btn').style.display='';
   document.getElementById('map-overlay').style.display='block';
   updateOverlay('📍 Click map to set ORIGIN');
@@ -2201,6 +2183,21 @@ function clearAll() {
 let gpsWatchId=null, gpsMarker=null, gpsPosition=null, gpsEnabled=false;
 let navActive=false, navRoute=null, navStepIndex=0, navTurns=[], navWakeLock=null;
 let rerouteTimeout=null, lastRerouteTime=0, navTotalDistM=0;
+let autoRerouteEnabled=true; // default on
+let reroutePromptShown=false;
+
+function toggleAutoReroute() {
+  autoRerouteEnabled = !autoRerouteEnabled;
+  const sw = document.getElementById('auto-reroute-switch');
+  const knob = document.getElementById('auto-reroute-knob');
+  if (autoRerouteEnabled) {
+    sw.style.background = 'var(--accent3)';
+    knob.style.left = '16px';
+  } else {
+    sw.style.background = 'var(--border)';
+    knob.style.left = '2px';
+  }
+}
 
 function toggleGPS() { gpsEnabled?stopGPS():startGPS(); }
 function startGPS() {
@@ -2219,6 +2216,15 @@ function startGPS() {
       updateOverlay('📍 GPS origin set! Click map for destination.');
       document.getElementById('map-overlay').style.display='block';
       clickStage='B';
+      // Fill origin input with estimated address (mobile address mode convenience)
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16`,{headers:{'Accept-Language':'en'}})
+        .then(r=>r.json())
+        .then(data=>{
+          if(data&&data.display_name){
+            const short=data.address?(data.address.road||data.address.suburb||data.address.city||data.display_name):data.display_name;
+            document.getElementById('origin-input').value=short;
+          }
+        }).catch(()=>{});
       gpsWatchId=navigator.geolocation.watchPosition(updateGPSPosition,e=>console.warn('GPS:',e.message),{enableHighAccuracy:true,maximumAge:2000,timeout:10000});
     },
     err=>{
@@ -2285,6 +2291,8 @@ function stopNavigation() {
   if(navWakeLock){navWakeLock.release();navWakeLock=null;}
   if(rerouteTimeout){clearTimeout(rerouteTimeout);rerouteTimeout=null;}
   document.getElementById('reroute-banner').style.display='none';
+  document.getElementById('reroute-prompt').style.display='none';
+  reroutePromptShown=false;
 }
 function updateNavigation() {
   if(!navActive||!navRoute||!gpsPosition) return;
@@ -2320,6 +2328,15 @@ function findClosestRoutePoint(lat,lng,route) {
 function scheduleReroute() {
   const now=Date.now();
   if(now-lastRerouteTime<8000||rerouteTimeout) return;
+  if (!autoRerouteEnabled) {
+    // Show manual reroute prompt instead
+    if (!reroutePromptShown) {
+      reroutePromptShown = true;
+      const prompt = document.getElementById('reroute-prompt');
+      prompt.style.display = 'flex';
+    }
+    return;
+  }
   rerouteTimeout=setTimeout(async()=>{
     rerouteTimeout=null;
     if(!navActive||!gpsPosition) return;
@@ -2335,6 +2352,30 @@ function scheduleReroute() {
     } catch(e){console.warn('Reroute failed:',e);}
     banner.style.display='none';
   },3000);
+}
+
+function dismissReroutePrompt() {
+  reroutePromptShown = false;
+  document.getElementById('reroute-prompt').style.display = 'none';
+  // Don't reroute again for 30 seconds after ignoring
+  lastRerouteTime = Date.now() + 22000;
+}
+
+async function confirmReroute() {
+  reroutePromptShown = false;
+  document.getElementById('reroute-prompt').style.display = 'none';
+  if(!navActive||!gpsPosition) return;
+  lastRerouteTime=Date.now();
+  const banner=document.getElementById('reroute-banner');
+  banner.style.display='block';
+  const dest=pointB;
+  setPointA(gpsPosition.lat,gpsPosition.lng);
+  pointB=dest;
+  try {
+    await findRoute();
+    if(routeLayer){navRoute=routeLayer.getLatLngs().map(ll=>[ll.lat,ll.lng]);navTurns=generateTurns(navRoute);navStepIndex=0;}
+  } catch(e){console.warn('Reroute failed:',e);}
+  banner.style.display='none';
 }
 
 // ── Turn generation ───────────────────────────────
