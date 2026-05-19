@@ -240,12 +240,28 @@
     padding: 10px 14px 12px;
   }
   #elev-panel.visible { display: flex; }
-  #elev-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  #elev-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   #elev-title { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
-  #elev-stats { font-size: 9px; color: var(--accent3); letter-spacing: 1px; }
   #elev-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; }
   #elev-close:hover { color: var(--accent2); }
-  #elev-canvas { width: 100%; height: 70px; display: block; }
+  #elev-stats { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+  .elev-stat { display: flex; flex-direction: column; gap: 1px; }
+  .elev-stat-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--accent3); }
+  .elev-stat-lbl { font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  #elev-canvas-wrap { position: relative; width: 100%; }
+  #elev-canvas-draw { width: 100%; height: 80px; display: block; cursor: crosshair; }
+  #elev-tooltip {
+    position: absolute; pointer-events: none; display: none;
+    background: rgba(10,10,15,0.95); border: 1px solid var(--accent3);
+    color: var(--text); font-family: 'Space Mono', monospace; font-size: 10px;
+    padding: 5px 9px; border-radius: 4px; white-space: nowrap;
+    transform: translateX(-50%); bottom: calc(100% + 6px);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  }
+  #elev-hairline {
+    position: absolute; top: 0; bottom: 0; width: 1px;
+    background: var(--accent3); pointer-events: none; display: none; opacity: 0.7;
+  }
 
   /* ── NEW: Replay scrubber ────────────────────────── */
   #replay-panel {
@@ -575,10 +591,19 @@
   <div id="elev-panel">
     <div id="elev-header">
       <span id="elev-title">Elevation Profile</span>
-      <span id="elev-stats"></span>
       <button id="elev-close" onclick="closeElevation()">✕</button>
     </div>
-    <canvas id="elev-canvas-draw" height="70"></canvas>
+    <div id="elev-stats">
+      <div class="elev-stat"><div class="elev-stat-val" id="elev-gain">—</div><div class="elev-stat-lbl">↑ Climb</div></div>
+      <div class="elev-stat"><div class="elev-stat-val" id="elev-loss">—</div><div class="elev-stat-lbl">↓ Descent</div></div>
+      <div class="elev-stat"><div class="elev-stat-val" id="elev-min">—</div><div class="elev-stat-lbl">Min alt</div></div>
+      <div class="elev-stat"><div class="elev-stat-val" id="elev-max">—</div><div class="elev-stat-lbl">Max alt</div></div>
+    </div>
+    <div id="elev-canvas-wrap">
+      <canvas id="elev-canvas-draw" height="80"></canvas>
+      <div id="elev-hairline"></div>
+      <div id="elev-tooltip"></div>
+    </div>
   </div>
 
   <!-- Visualization legend -->
@@ -1986,53 +2011,140 @@ async function fetchElevation() {
   btn.disabled = false;
 }
 
+// Elevation state for hover interaction
+let elevData = null; // { elevations, coords, minE, maxE, range, w, h }
+let elevHoverMarker = null;
+
 function drawElevationProfile(elevations, coords) {
-  const panel=document.getElementById('elev-panel');
+  const panel = document.getElementById('elev-panel');
   panel.classList.add('visible');
-  const c=document.getElementById('elev-canvas-draw');
-  const w=panel.clientWidth-28, h=70;
-  c.width=w; c.height=h;
-  const ctx2=c.getContext('2d');
+  const c = document.getElementById('elev-canvas-draw');
+  const wrap = document.getElementById('elev-canvas-wrap');
+  const w = wrap.clientWidth, h = 80;
+  c.width = w; c.height = h;
+  const ctx2 = c.getContext('2d');
 
-  const minE=Math.min(...elevations), maxE=Math.max(...elevations);
-  const range=maxE-minE||1;
-  const gain=elevations.reduce((acc,e,i)=>i>0&&e>elevations[i-1]?acc+(e-elevations[i-1]):acc,0);
-  const loss=elevations.reduce((acc,e,i)=>i>0&&e<elevations[i-1]?acc+(elevations[i-1]-e):acc,0);
+  const minE = Math.min(...elevations), maxE = Math.max(...elevations);
+  const range = maxE - minE || 1;
+  const gain = elevations.reduce((acc,e,i) => i>0&&e>elevations[i-1] ? acc+(e-elevations[i-1]) : acc, 0);
+  const loss = elevations.reduce((acc,e,i) => i>0&&e<elevations[i-1] ? acc+(elevations[i-1]-e) : acc, 0);
 
-  document.getElementById('elev-stats').textContent =
-    `↑ ${gain.toFixed(0)}m  ↓ ${loss.toFixed(0)}m  min ${minE.toFixed(0)}m  max ${maxE.toFixed(0)}m`;
+  document.getElementById('elev-gain').textContent = gain.toFixed(0) + ' m';
+  document.getElementById('elev-loss').textContent = loss.toFixed(0) + ' m';
+  document.getElementById('elev-min').textContent  = minE.toFixed(0) + ' m';
+  document.getElementById('elev-max').textContent  = maxE.toFixed(0) + ' m';
 
-  // Draw gradient fill
-  const grad=ctx2.createLinearGradient(0,0,0,h);
-  grad.addColorStop(0,'rgba(68,136,255,0.6)');
-  grad.addColorStop(1,'rgba(68,136,255,0.05)');
-  ctx2.fillStyle=grad;
+  // Store for hover
+  elevData = { elevations, coords, minE, maxE, range, w, h };
+
+  renderElevationCanvas(ctx2, elevations, minE, range, w, h, -1);
+
+  // Hook up mouse events
+  c.onmousemove = (e) => onElevHover(e, c, ctx2);
+  c.onmouseleave = () => onElevLeave(ctx2);
+}
+
+function getElevY(e, minE, range, h) {
+  return h - ((e - minE) / range) * (h - 12) - 6;
+}
+
+function renderElevationCanvas(ctx2, elevations, minE, range, w, h, hoverIdx) {
+  ctx2.clearRect(0, 0, w, h);
+
+  // Gradient fill
+  const grad = ctx2.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, 'rgba(68,136,255,0.55)');
+  grad.addColorStop(1, 'rgba(68,136,255,0.04)');
+  ctx2.fillStyle = grad;
   ctx2.beginPath();
-  ctx2.moveTo(0,h);
-  elevations.forEach((e,i)=>{
-    const x=(i/(elevations.length-1))*w;
-    const y=h-((e-minE)/range)*(h-8)-4;
-    if(i===0)ctx2.lineTo(x,y); else ctx2.lineTo(x,y);
+  ctx2.moveTo(0, h);
+  elevations.forEach((e, i) => {
+    const x = (i / (elevations.length - 1)) * w;
+    const y = getElevY(e, minE, range, h);
+    ctx2.lineTo(x, y);
   });
-  ctx2.lineTo(w,h); ctx2.closePath(); ctx2.fill();
+  ctx2.lineTo(w, h);
+  ctx2.closePath();
+  ctx2.fill();
 
-  // Draw line
-  ctx2.strokeStyle='#4488ff'; ctx2.lineWidth=1.5; ctx2.beginPath();
-  elevations.forEach((e,i)=>{
-    const x=(i/(elevations.length-1))*w;
-    const y=h-((e-minE)/range)*(h-8)-4;
-    if(i===0)ctx2.moveTo(x,y); else ctx2.lineTo(x,y);
+  // Line
+  ctx2.strokeStyle = '#4488ff'; ctx2.lineWidth = 1.5; ctx2.beginPath();
+  elevations.forEach((e, i) => {
+    const x = (i / (elevations.length - 1)) * w;
+    const y = getElevY(e, minE, range, h);
+    i === 0 ? ctx2.moveTo(x, y) : ctx2.lineTo(x, y);
   });
   ctx2.stroke();
 
   // Min/max labels
-  ctx2.fillStyle='rgba(224,224,240,0.7)'; ctx2.font='9px Space Mono';
-  ctx2.fillText(maxE.toFixed(0)+'m',4,12);
-  ctx2.fillText(minE.toFixed(0)+'m',4,h-3);
+  ctx2.fillStyle = 'rgba(224,224,240,0.5)'; ctx2.font = '9px Space Mono';
+  ctx2.fillText(Math.max(...elevations).toFixed(0) + 'm', 4, 11);
+  ctx2.fillText(Math.min(...elevations).toFixed(0) + 'm', 4, h - 3);
+
+  // Hover dot
+  if (hoverIdx >= 0 && hoverIdx < elevations.length) {
+    const hx = (hoverIdx / (elevations.length - 1)) * w;
+    const hy = getElevY(elevations[hoverIdx], minE, range, h);
+    ctx2.beginPath(); ctx2.arc(hx, hy, 4, 0, Math.PI * 2);
+    ctx2.fillStyle = '#fff'; ctx2.fill();
+    ctx2.strokeStyle = '#4488ff'; ctx2.lineWidth = 2; ctx2.stroke();
+  }
+}
+
+function onElevHover(e, c, ctx2) {
+  if (!elevData) return;
+  const { elevations, coords, minE, maxE, range, w, h } = elevData;
+  const rect = c.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const idx = Math.round((mx / w) * (elevations.length - 1));
+  const clampedIdx = Math.max(0, Math.min(elevations.length - 1, idx));
+
+  renderElevationCanvas(ctx2, elevations, minE, range, w, h, clampedIdx);
+
+  // Hairline
+  const hairline = document.getElementById('elev-hairline');
+  const hx = (clampedIdx / (elevations.length - 1)) * w;
+  hairline.style.left = hx + 'px';
+  hairline.style.display = 'block';
+
+  // Tooltip
+  const tooltip = document.getElementById('elev-tooltip');
+  const elev = elevations[clampedIdx];
+  tooltip.textContent = `${elev.toFixed(0)} m`;
+  const tipLeft = Math.max(30, Math.min(w - 30, hx));
+  tooltip.style.left = tipLeft + 'px';
+  tooltip.style.display = 'block';
+
+  // Move marker on map
+  if (coords && coords[clampedIdx]) {
+    const ll = coords[clampedIdx];
+    const latlng = L.latLng(ll.lat, ll.lng);
+    if (!elevHoverMarker) {
+      elevHoverMarker = L.circleMarker(latlng, {
+        radius: 6, color: '#fff', weight: 2,
+        fillColor: '#4488ff', fillOpacity: 1, interactive: false
+      }).addTo(map);
+    } else {
+      elevHoverMarker.setLatLng(latlng);
+    }
+  }
+}
+
+function onElevLeave(ctx2) {
+  if (!elevData) return;
+  const { elevations, minE, range, w, h } = elevData;
+  renderElevationCanvas(ctx2, elevations, minE, range, w, h, -1);
+  document.getElementById('elev-hairline').style.display = 'none';
+  document.getElementById('elev-tooltip').style.display = 'none';
+  if (elevHoverMarker) { elevHoverMarker.remove(); elevHoverMarker = null; }
 }
 
 function closeElevation() {
   document.getElementById('elev-panel').classList.remove('visible');
+  document.getElementById('elev-hairline').style.display = 'none';
+  document.getElementById('elev-tooltip').style.display = 'none';
+  if (elevHoverMarker) { elevHoverMarker.remove(); elevHoverMarker = null; }
+  elevData = null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
