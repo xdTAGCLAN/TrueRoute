@@ -469,6 +469,57 @@
 
     <hr class="divider"/>
 
+    <!-- Pre-download area -->
+    <div class="field-group" id="predownload-section">
+      <div class="field-label" style="justify-content:space-between;">
+        <span>Pre-download Area</span>
+        <span id="predownload-cache-badge" style="display:none;font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);background:rgba(0,255,136,0.1);border:1px solid var(--accent);padding:2px 7px;border-radius:10px;">Loaded</span>
+      </div>
+      <div class="field-hint" style="margin-bottom:6px;">Draw a rectangle on the map to pre-cache all roads in that area. Routes within it will be instant.</div>
+      <div class="mode-row" style="margin-bottom:6px;">
+        <button class="mode-btn" id="predownload-draw-btn" onclick="startAreaDraw()">✏ Draw Area</button>
+        <button class="mode-btn" id="predownload-view-btn" onclick="togglePredownloadArea()" style="display:none;">👁 Show Area</button>
+      </div>
+      <!-- Area name + download -->
+      <div id="predownload-area-controls" style="display:none;flex-direction:column;gap:6px;">
+        <input class="field-input" id="predownload-area-name" type="text" placeholder="Area name (e.g. Amsterdam Centre)" style="font-size:10px;"/>
+        <div id="predownload-area-info" class="field-hint" style="color:var(--accent3);"></div>
+        <button id="predownload-fetch-btn" onclick="fetchPredownloadArea()" style="background:var(--accent3);color:#fff;border:none;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:11px;border-radius:4px;cursor:pointer;transition:all 0.2s;width:100%;" onmouseover="this.style.background='#6699ff'" onmouseout="this.style.background='var(--accent3)'">⬇ Download Roads</button>
+        <button onclick="clearPredownloadArea()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:7px;border-radius:4px;cursor:pointer;width:100%;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent2)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✕ Clear Area</button>
+      </div>
+      <!-- Download progress -->
+      <div id="predownload-progress" style="display:none;flex-direction:column;gap:8px;">
+        <div id="predownload-status" style="font-size:10px;color:var(--accent3);line-height:1.6;"></div>
+        <div class="progress-bar"><div class="progress-fill" id="predownload-progress-fill"></div></div>
+        <button onclick="cancelPredownload()" style="background:transparent;border:1px solid var(--accent2);color:var(--accent2);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:7px;border-radius:4px;cursor:pointer;width:100%;">✕ Cancel</button>
+      </div>
+      <!-- Loaded area summary -->
+      <div id="predownload-loaded" style="display:none;flex-direction:column;gap:6px;">
+        <div style="background:rgba(0,255,136,0.06);border:1px solid var(--accent);border-radius:4px;padding:10px 12px;display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Name</span>
+            <span id="predownload-loaded-name" style="font-family:'Syne',sans-serif;font-weight:700;font-size:12px;color:var(--accent);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;"></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Nodes</span>
+            <span id="predownload-loaded-nodes" style="font-family:'Syne',sans-serif;font-weight:700;font-size:12px;color:var(--accent3);"></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Mode</span>
+            <span id="predownload-loaded-mode" style="font-family:'Syne',sans-serif;font-weight:700;font-size:12px;color:var(--accent3);"></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Downloaded</span>
+            <span id="predownload-loaded-time" style="font-size:10px;color:var(--muted);"></span>
+          </div>
+        </div>
+        <button onclick="refetchPredownloadArea()" style="background:transparent;border:1px solid var(--accent3);color:var(--accent3);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:7px;border-radius:4px;cursor:pointer;width:100%;transition:all 0.2s;" onmouseover="this.style.background='rgba(68,136,255,0.1)'" onmouseout="this.style.background='transparent'">↺ Refresh Data</button>
+        <button onclick="clearPredownloadArea()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:7px;border-radius:4px;cursor:pointer;width:100%;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent2)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✕ Clear Saved Area</button>
+      </div>
+    </div>
+
+    <hr class="divider"/>
+
     <!-- Visualization -->
     <div class="field-group" id="viz-section">
       <div class="field-label">Visualization</div>
@@ -1516,6 +1567,332 @@ function invalidateCache() {
   osmCache.timestamp = 0;
   updateCacheIndicator('empty');
   showToast('🗑 Road data cache cleared');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRE-DOWNLOAD AREA
+// ═══════════════════════════════════════════════════════════════════════════
+let predownloadRect    = null;  // Leaflet rectangle layer (the drawn box)
+let predownloadBbox    = null;  // [s, w, n, e] of drawn area
+let predownloadAbort   = null;  // AbortController for the fetch
+let predownloadDrawing = false; // whether draw mode is active
+let predownloadDrawStart= null; // {lat,lng} of first corner
+let predownloadTempRect= null;  // rubber-band rectangle while dragging
+
+const PREDOWNLOAD_TTL_MS = 30 * 60 * 1000; // 30 min — longer than auto cache
+
+// ── Draw-mode: enter / leave ──────────────────────
+function startAreaDraw() {
+  if (predownloadDrawing) { cancelAreaDraw(); return; }
+  predownloadDrawing = true;
+  document.getElementById('predownload-draw-btn').textContent = '✕ Cancel Draw';
+  document.getElementById('predownload-draw-btn').style.borderColor = 'var(--accent2)';
+  document.getElementById('predownload-draw-btn').style.color = 'var(--accent2)';
+  map.getContainer().style.cursor = 'crosshair';
+  map.dragging.disable();
+  map.touchZoom.disable();
+  map.on('mousedown', onPredownloadMouseDown);
+  // Touch support for mobile
+  map.getContainer().addEventListener('touchstart', onPredownloadTouchStart, { passive: false });
+  updateOverlay('🔲 Click and drag to draw download area');
+  document.getElementById('map-overlay').style.display = 'block';
+  document.getElementById('map-overlay').style.opacity = '1';
+}
+
+function cancelAreaDraw() {
+  predownloadDrawing = false;
+  document.getElementById('predownload-draw-btn').textContent = '✏ Draw Area';
+  document.getElementById('predownload-draw-btn').style.borderColor = '';
+  document.getElementById('predownload-draw-btn').style.color = '';
+  map.getContainer().style.cursor = '';
+  map.dragging.enable();
+  map.touchZoom.enable();
+  map.off('mousedown', onPredownloadMouseDown);
+  map.off('mousemove', onPredownloadMouseMove);
+  map.off('mouseup',   onPredownloadMouseUp);
+  map.getContainer().removeEventListener('touchstart', onPredownloadTouchStart);
+  map.getContainer().removeEventListener('touchmove',  onPredownloadTouchMove);
+  map.getContainer().removeEventListener('touchend',   onPredownloadTouchEnd);
+  if (predownloadTempRect) { predownloadTempRect.remove(); predownloadTempRect = null; }
+  document.getElementById('map-overlay').style.opacity = '0';
+  setTimeout(() => { document.getElementById('map-overlay').style.display = 'none'; }, 400);
+}
+
+// Touch handlers
+function onPredownloadTouchStart(ev) {
+  if (ev.touches.length !== 1) return;
+  ev.preventDefault();
+  const touch = ev.touches[0];
+  const latlng = map.containerPointToLatLng(
+    L.point(touch.clientX - map.getContainer().getBoundingClientRect().left,
+            touch.clientY - map.getContainer().getBoundingClientRect().top)
+  );
+  predownloadDrawStart = latlng;
+  if (predownloadTempRect) { predownloadTempRect.remove(); predownloadTempRect = null; }
+  predownloadTempRect = L.rectangle([latlng, latlng], {
+    color:'#4488ff', weight:2, dashArray:'6 4',
+    fill:true, fillColor:'#4488ff', fillOpacity:0.08, interactive:false
+  }).addTo(map);
+  map.getContainer().addEventListener('touchmove', onPredownloadTouchMove, { passive: false });
+  map.getContainer().addEventListener('touchend',  onPredownloadTouchEnd);
+}
+
+function onPredownloadTouchMove(ev) {
+  if (!predownloadDrawStart || !predownloadTempRect || ev.touches.length !== 1) return;
+  ev.preventDefault();
+  const touch = ev.touches[0];
+  const latlng = map.containerPointToLatLng(
+    L.point(touch.clientX - map.getContainer().getBoundingClientRect().left,
+            touch.clientY - map.getContainer().getBoundingClientRect().top)
+  );
+  predownloadTempRect.setBounds([predownloadDrawStart, latlng]);
+}
+
+function onPredownloadTouchEnd(ev) {
+  map.getContainer().removeEventListener('touchmove', onPredownloadTouchMove);
+  map.getContainer().removeEventListener('touchend',  onPredownloadTouchEnd);
+  if (!predownloadDrawStart || !predownloadTempRect) return;
+  const bounds = predownloadTempRect.getBounds();
+  if (bounds.getNorth() - bounds.getSouth() < 0.001 || bounds.getEast() - bounds.getWest() < 0.001) {
+    showToast('⚠️ Area too small — draw a larger rectangle');
+    cancelAreaDraw(); return;
+  }
+  commitPredownloadArea(bounds);
+  cancelAreaDraw();
+}
+
+function onPredownloadMouseDown(e) {
+  predownloadDrawStart = e.latlng;
+  if (predownloadTempRect) { predownloadTempRect.remove(); predownloadTempRect = null; }
+  predownloadTempRect = L.rectangle(
+    [e.latlng, e.latlng],
+    { color:'#4488ff', weight:2, dashArray:'6 4', fill:true, fillColor:'#4488ff', fillOpacity:0.08, interactive:false }
+  ).addTo(map);
+  map.on('mousemove', onPredownloadMouseMove);
+  map.on('mouseup',   onPredownloadMouseUp);
+  // Prevent default drag-pan
+  L.DomEvent.stopPropagation(e);
+}
+
+function onPredownloadMouseMove(e) {
+  if (!predownloadDrawStart || !predownloadTempRect) return;
+  predownloadTempRect.setBounds([predownloadDrawStart, e.latlng]);
+}
+
+function onPredownloadMouseUp(e) {
+  map.off('mousemove', onPredownloadMouseMove);
+  map.off('mouseup',   onPredownloadMouseUp);
+  if (!predownloadDrawStart) return;
+  const bounds = L.latLngBounds(predownloadDrawStart, e.latlng);
+  if (bounds.getNorth() - bounds.getSouth() < 0.001 || bounds.getEast() - bounds.getWest() < 0.001) {
+    showToast('⚠️ Area too small — draw a larger rectangle');
+    cancelAreaDraw();
+    return;
+  }
+  commitPredownloadArea(bounds);
+  cancelAreaDraw();
+}
+
+function commitPredownloadArea(bounds) {
+  // Remove old rectangle
+  if (predownloadRect)    { predownloadRect.remove();    predownloadRect = null; }
+  if (predownloadTempRect){ predownloadTempRect.remove(); predownloadTempRect = null; }
+
+  predownloadBbox = [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()];
+
+  predownloadRect = L.rectangle(bounds, {
+    color: '#ff9900', weight: 2, dashArray: '8 5',
+    fill: true, fillColor: '#ff9900', fillOpacity: 0.05, interactive: false
+  }).addTo(map);
+
+  // Size estimate
+  const widthKm  = haversineCoords(bounds.getSouth(), bounds.getWest(), bounds.getSouth(), bounds.getEast()) / 1000;
+  const heightKm = haversineCoords(bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getWest()) / 1000;
+  const areaKm2  = (widthKm * heightKm).toFixed(1);
+  document.getElementById('predownload-area-info').textContent =
+    `${widthKm.toFixed(1)} km × ${heightKm.toFixed(1)} km ≈ ${areaKm2} km²`;
+
+  // Warn if very large
+  if (parseFloat(areaKm2) > 100) {
+    document.getElementById('predownload-area-info').textContent +=
+      ' — ⚠️ Large area, may be slow';
+  }
+
+  document.getElementById('predownload-area-controls').style.display = 'flex';
+  document.getElementById('predownload-view-btn').style.display = '';
+  document.getElementById('predownload-loaded').style.display = 'none';
+  document.getElementById('predownload-cache-badge').style.display = 'none';
+}
+
+function togglePredownloadArea() {
+  if (!predownloadRect) return;
+  if (map.hasLayer(predownloadRect)) {
+    map.removeLayer(predownloadRect);
+    document.getElementById('predownload-view-btn').textContent = '👁 Show Area';
+  } else {
+    predownloadRect.addTo(map);
+    document.getElementById('predownload-view-btn').textContent = '🙈 Hide Area';
+  }
+}
+
+async function fetchPredownloadArea() {
+  if (!predownloadBbox) return;
+  const name = document.getElementById('predownload-area-name').value.trim() || 'Custom Area';
+
+  // Warn about oversized areas
+  const [s, w, n, e] = predownloadBbox;
+  const widthKm  = haversineCoords(s, w, s, e) / 1000;
+  const heightKm = haversineCoords(s, w, n, w) / 1000;
+  if (widthKm * heightKm > 200) {
+    if (!confirm(`This area is ${(widthKm * heightKm).toFixed(0)} km² — a very large download that may time out or be very slow. Continue?`)) return;
+  }
+
+  // Show progress UI
+  document.getElementById('predownload-area-controls').style.display = 'none';
+  document.getElementById('predownload-loaded').style.display = 'none';
+  document.getElementById('predownload-progress').style.display = 'flex';
+  setPredownloadStatus('🌍 Connecting to Overpass…', 5);
+
+  predownloadAbort = new AbortController();
+  const bboxStr = predownloadBbox.join(',');
+  const mode = transportMode;
+
+  try {
+    // Use our existing fetchRoadGraph but with the manual bbox string
+    // We temporarily override the cache TTL to be longer for manual downloads
+    const savedTTL = osmCache.TTL_MS;
+    osmCache.TTL_MS = PREDOWNLOAD_TTL_MS;
+
+    setPredownloadStatus(`🌍 Fetching roads for "${name}"…`, 15);
+    const data = await fetchPredownloadAreaRaw(bboxStr, mode, predownloadAbort.signal,
+      (msg, pct) => setPredownloadStatus(msg, pct));
+
+    // Store in osmCache with expanded bbox (covers the drawn rectangle fully)
+    const pad = 0.001;
+    osmCache.data      = data;
+    osmCache.mode      = mode;
+    osmCache.timestamp = Date.now();
+    osmCache.TTL_MS    = PREDOWNLOAD_TTL_MS;
+    osmCache.bbox      = [s - pad, w - pad, n + pad, e + pad];
+
+    updateCacheIndicator('fresh');
+
+    const nodeCount = data.elements.filter(el => el.type === 'node').length;
+    const wayCount  = data.elements.filter(el => el.type === 'way').length;
+
+    // Update UI to show loaded state
+    document.getElementById('predownload-progress').style.display = 'none';
+    document.getElementById('predownload-loaded').style.display = 'flex';
+    document.getElementById('predownload-cache-badge').style.display = '';
+    document.getElementById('predownload-loaded-name').textContent  = name;
+    document.getElementById('predownload-loaded-nodes').textContent = nodeCount.toLocaleString() + ' nodes, ' + wayCount.toLocaleString() + ' ways';
+    document.getElementById('predownload-loaded-mode').textContent  = mode.charAt(0).toUpperCase() + mode.slice(1);
+    document.getElementById('predownload-loaded-time').textContent  = new Date().toLocaleTimeString();
+    document.getElementById('predownload-view-btn').style.display   = '';
+
+    // Style the rectangle to show it's loaded
+    if (predownloadRect) {
+      predownloadRect.setStyle({ color:'var(--accent)', dashArray: null, fillColor:'var(--accent)', fillOpacity:0.04 });
+    }
+
+    showToast(`✅ "${name}" cached — ${nodeCount.toLocaleString()} nodes ready`);
+
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      showToast('⏹ Download cancelled');
+    } else {
+      showError('Pre-download failed: ' + e.message);
+    }
+    document.getElementById('predownload-progress').style.display = 'none';
+    document.getElementById('predownload-area-controls').style.display = 'flex';
+  } finally {
+    predownloadAbort = null;
+  }
+}
+
+async function fetchPredownloadAreaRaw(bbox, mode, signal, onStatus) {
+  let highwayFilter;
+  if (mode === 'walk') {
+    highwayFilter = `"highway"~"^(footway|path|steps|pedestrian|living_street|residential|unclassified|tertiary|secondary|primary|service|track)$"`;
+  } else if (mode === 'bike') {
+    highwayFilter = `"highway"~"^(cycleway|path|footway|living_street|residential|unclassified|tertiary|secondary|primary|service|track)$"`;
+  } else {
+    highwayFilter = `"highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link|road)$"`;
+  }
+  const ferryFilter = `way["route"="ferry"](${bbox});relation["route"="ferry"](${bbox});`;
+  const q = `[out:json][timeout:120][maxsize:268435456];(way[${highwayFilter}]["access"!="private"](${bbox});${ferryFilter});out body;>;out skel qt;`;
+
+  const mirrors = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  ];
+
+  let lastErr;
+  let attempt = 0;
+  for (const base of mirrors) {
+    if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    attempt++;
+    const hostname = new URL(base).hostname;
+    onStatus(`🌍 Querying ${hostname}… (mirror ${attempt}/${mirrors.length})`, 10 + attempt * 15);
+    try {
+      const res = await fetch(base, {
+        method: 'POST', mode: 'cors',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'data=' + encodeURIComponent(q),
+        signal
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      onStatus(`📦 Parsing road data…`, 70);
+      const text = await res.text();
+      if (text.trim().startsWith('<')) throw new Error('Server returned error page');
+      const data = JSON.parse(text);
+      if (!data.elements || !data.elements.length) throw new Error('No road data in this area');
+      onStatus(`✅ Building graph…`, 90);
+      await new Promise(r => setTimeout(r, 50));
+      return data;
+    } catch(e) {
+      if (e.name === 'AbortError') throw e;
+      lastErr = e;
+      console.warn(`Pre-download mirror ${base} failed:`, e.message);
+    }
+  }
+  throw new Error(`All mirrors failed. Last: ${lastErr?.message}`);
+}
+
+function setPredownloadStatus(msg, pct) {
+  document.getElementById('predownload-status').textContent = msg;
+  document.getElementById('predownload-progress-fill').style.width = pct + '%';
+}
+
+function cancelPredownload() {
+  if (predownloadAbort) { predownloadAbort.abort(); predownloadAbort = null; }
+}
+
+function clearPredownloadArea() {
+  cancelPredownload();
+  if (predownloadRect) { predownloadRect.remove(); predownloadRect = null; }
+  predownloadBbox = null;
+  document.getElementById('predownload-area-controls').style.display = 'none';
+  document.getElementById('predownload-progress').style.display = 'none';
+  document.getElementById('predownload-loaded').style.display = 'none';
+  document.getElementById('predownload-cache-badge').style.display = 'none';
+  document.getElementById('predownload-view-btn').style.display = 'none';
+  document.getElementById('predownload-draw-btn').textContent = '✏ Draw Area';
+  document.getElementById('predownload-area-name').value = '';
+  // If the cache was for this area, clear it too
+  osmCache.TTL_MS = 5 * 60 * 1000; // reset to normal TTL
+  invalidateCache();
+}
+
+function refetchPredownloadArea() {
+  // Re-show the controls so user can re-download with current mode
+  document.getElementById('predownload-loaded').style.display = 'none';
+  document.getElementById('predownload-area-controls').style.display = 'flex';
+  document.getElementById('predownload-area-info').textContent =
+    osmCache.bbox
+      ? `Previously loaded for ${osmCache.mode} — click Download to refresh`
+      : 'Click Download to fetch roads';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
