@@ -1352,6 +1352,24 @@ function setTransport(mode) {
   if (pointA && pointB) schedulePrefetch();
 }
 function setBboxMode(mode) {
+  // When switching to custom, seed the slider with whatever auto would compute
+  if (mode === 'custom') {
+    let autoPadM = 500; // fallback default
+    if (pointA && pointB) {
+      const distM = haversineCoords(pointA.lat, pointA.lng, pointB.lat, pointB.lng);
+      const autoTotal = Math.min(4000, Math.max(500, distM * 0.18));
+      // custom adds a base on top of bboxExtraPadM; subtract it so total matches auto
+      const baseM = Math.min(400, Math.max(150, distM * 0.03));
+      autoPadM = Math.max(0, Math.round(autoTotal - baseM));
+    }
+    // Round to nearest slider step (250)
+    autoPadM = Math.round(autoPadM / 250) * 250;
+    bboxExtraPadM = autoPadM;
+    const slider = document.getElementById('bbox-pad');
+    slider.value = autoPadM;
+    const label = autoPadM >= 1000 ? (autoPadM/1000).toFixed(1)+' km' : autoPadM+' m';
+    document.getElementById('bbox-pad-label').textContent = label;
+  }
   bboxMode = mode;
   ['auto','custom','none'].forEach(m => document.getElementById(`bbox-${m}-btn`).classList.toggle('active', m===mode));
   document.getElementById('bbox-slider-wrap').style.display = mode==='custom'?'block':'none';
