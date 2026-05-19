@@ -1383,7 +1383,7 @@ function updateBboxPreview() {
 function computeBBoxCoords(a, b) {
   if (bboxMode==='none') return null;
   const distM = haversineCoords(a.lat,a.lng,b.lat,b.lng);
-  let padM = bboxMode==='auto' ? Math.max(2500, distM * 0.15) : Math.min(400,Math.max(150,distM*0.03))+bboxExtraPadM;
+  let padM = bboxMode==='auto' ? Math.max(1500, distM * 0.15) : Math.min(400,Math.max(150,distM*0.03))+bboxExtraPadM;
   const padLat = padM/111320;
   const padLng = padM/(111320*Math.cos(((a.lat+b.lat)/2)*Math.PI/180));
   return [Math.min(a.lat,b.lat)-padLat, Math.min(a.lng,b.lng)-padLng, Math.max(a.lat,b.lat)+padLat, Math.max(a.lng,b.lng)+padLng];
