@@ -381,6 +381,18 @@
         <button class="mode-btn" id="tm-bike"        onclick="setTransport('bike')">🚲 Bike</button>
         <button class="mode-btn" id="tm-walk"        onclick="setTransport('walk')">🚶 Walk</button>
       </div>
+      <!-- Bicycle dismount option — only shown in bike mode -->
+      <div id="bike-dismount-row" style="display:none;margin-top:6px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:8px 12px;">
+          <span style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Allow dismount paths</span>
+          <div id="dismount-toggle" onclick="toggleBikeDismount()" style="cursor:pointer;display:flex;align-items:center;gap:5px;" title="Paths marked bicycle=dismount require you to walk your bike">
+            <div id="dismount-switch" style="width:30px;height:15px;border-radius:8px;background:var(--border);position:relative;transition:background 0.2s;flex-shrink:0;">
+              <div id="dismount-knob" style="position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;transition:left 0.2s;"></div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:9px;color:var(--muted);line-height:1.5;margin-top:4px;">Off: skip paths where you must walk your bike.</div>
+      </div>
     </div>
 
     <!-- Avoid options -->
@@ -722,6 +734,7 @@ let bboxExtraPadM = 500;
 let bboxRectLayer = null;
 let diagnosticLayers = [];
 let avoidSet = new Set(); // 'highways' | 'tolls' | 'ferries'
+let allowBikeDismount = false; // default: do NOT allow bicycle=dismount paths
 let currentTileLayer = 'osm';
 let mapTheme = 'dark';
 let tileLayerObj = null;
@@ -895,11 +908,11 @@ function updateCompassFromMap() {
 // ═══════════════════════════════════════════════════════════════════════════
 // MARKERS / CLICK
 // ═══════════════════════════════════════════════════════════════════════════
-function makeIcon(color, glowColor) {
+function makeIcon(color, glowColor, label) {
   return L.divIcon({
     className: '',
-    html: `<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 0 12px ${glowColor||color};cursor:move;"></div>`,
-    iconSize: [16,16], iconAnchor: [8,8]
+    html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 0 12px ${glowColor||color};cursor:move;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;color:#000;font-family:'Syne',sans-serif;">${label||''}</div>`,
+    iconSize: [18,18], iconAnchor: [9,9]
   });
 }
 function makeWaypointIcon(idx) {
@@ -964,7 +977,7 @@ function setPointA(lat, lng) {
   pointA = { lat, lng };
   if (markerA) markerA.remove();
   markerA = L.marker([lat,lng], {
-    icon: makeIcon('#00ff88','#00ff88'),
+    icon: makeIcon('#00ff88','#00ff88','A'),
     draggable: true
   }).bindTooltip('🏁 Origin').addTo(map);
   markerA.on('dragend', e => { const ll = e.target.getLatLng(); setPointA(ll.lat, ll.lng); });
@@ -974,7 +987,7 @@ function setPointB(lat, lng) {
   pointB = { lat, lng };
   if (markerB) markerB.remove();
   markerB = L.marker([lat,lng], {
-    icon: makeIcon('#ff3366','#ff3366'),
+    icon: makeIcon('#ff3366','#ff3366','B'),
     draggable: true
   }).bindTooltip('🎯 Destination').addTo(map);
   markerB.on('dragend', e => { const ll = e.target.getLatLng(); setPointB(ll.lat, ll.lng); });
@@ -1341,6 +1354,8 @@ function resetReplay() {
 function setTransport(mode) {
   transportMode = mode;
   ['car','bike','walk'].forEach(m => document.getElementById(`tm-${m}`).classList.toggle('active', m===mode));
+  // Show/hide dismount option for bike mode
+  document.getElementById('bike-dismount-row').style.display = mode === 'bike' ? 'block' : 'none';
   // Save preference
   try { localStorage.setItem('trueroute_transport', mode); } catch(e) {}
   resetRunBtn();
@@ -1350,6 +1365,23 @@ function setTransport(mode) {
     updateCacheIndicator('empty');
   }
   if (pointA && pointB) schedulePrefetch();
+}
+
+function toggleBikeDismount() {
+  allowBikeDismount = !allowBikeDismount;
+  const sw = document.getElementById('dismount-switch');
+  const knob = document.getElementById('dismount-knob');
+  if (allowBikeDismount) {
+    sw.style.background = 'var(--accent3)';
+    knob.style.left = '16px';
+  } else {
+    sw.style.background = 'var(--border)';
+    knob.style.left = '2px';
+  }
+  // Invalidate cache since routing changes
+  osmCache.data = null; osmCache.bbox = null; osmCache.mode = null; osmCache.timestamp = 0;
+  updateCacheIndicator('empty');
+  resetRunBtn();
 }
 function setBboxMode(mode) {
   // When switching to custom, seed the slider with whatever auto would compute
@@ -1944,6 +1976,8 @@ function buildGraph(osmData, mode='car') {
       if (avoidSet.has('highways') && (tags.highway==='motorway'||tags.highway==='motorway_link'||tags.highway==='trunk'||tags.highway==='trunk_link')) continue;
       if (avoidSet.has('tolls') && tags.toll==='yes') continue;
       if (avoidRoadTypes.size > 0 && tags.highway && avoidRoadTypes.has(tags.highway)) continue;
+      // Skip bicycle=dismount paths unless user explicitly allows them
+      if (mode==='bike' && !allowBikeDismount && tags.bicycle==='dismount') continue;
     }
     const nds=el.nodes;
     const ow=!ignoreOneway&&(tags.oneway==='yes'||tags.oneway==='1'||tags.junction==='roundabout'||tags.highway==='motorway');
@@ -2756,15 +2790,8 @@ function startGPS() {
       updateOverlay('📍 GPS origin set! Click map for destination.');
       document.getElementById('map-overlay').style.display='block';
       clickStage='B';
-      // Fill origin input with estimated address (mobile address mode convenience)
-      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16`,{headers:{'Accept-Language':'en'}})
-        .then(r=>r.json())
-        .then(data=>{
-          if(data&&data.display_name){
-            const short=data.address?(data.address.road||data.address.suburb||data.address.city||data.display_name):data.display_name;
-            document.getElementById('origin-input').value=short;
-          }
-        }).catch(()=>{});
+      // Fill origin input with coordinates
+      document.getElementById('origin-input').value=`${lat.toFixed(6)}, ${lng.toFixed(6)}`;
       gpsWatchId=navigator.geolocation.watchPosition(updateGPSPosition,e=>console.warn('GPS:',e.message),{enableHighAccuracy:true,maximumAge:2000,timeout:10000});
     },
     err=>{
@@ -2838,6 +2865,14 @@ function updateNavigation() {
   if(!navActive||!navRoute||!gpsPosition) return;
   const {lat,lng}=gpsPosition;
   const {closestIdx,distToRoute}=findClosestRoutePoint(lat,lng,navRoute);
+  // Check actual distance to destination point
+  const dest=navRoute[navRoute.length-1];
+  const distToDest=haversineCoords(lat,lng,dest[0],dest[1]);
+  if (distToDest<20) {
+    // Truly arrived
+    updateNavHUD();
+    return;
+  }
   if (distToRoute>40) { scheduleReroute(); }
   else {
     if(closestIdx>navStepIndex) navStepIndex=closestIdx;
@@ -2932,13 +2967,13 @@ function generateTurns(route) {
       if(haversineCoords(last.lat,last.lng,curr[0],curr[1])<30) continue;
       let arrow,instruction;
       if(turn>120)        {arrow='↩️';instruction='Make a U-turn';}
-      else if(turn>60)    {arrow='↰';instruction='Turn sharp left';}
-      else if(turn>20)    {arrow='⬅️';instruction='Turn left';}
-      else if(turn>5)     {arrow='↖️';instruction='Keep left';}
+      else if(turn>60)    {arrow='↱';instruction='Turn sharp right';}
+      else if(turn>20)    {arrow='➡️';instruction='Turn right';}
+      else if(turn>5)     {arrow='↗️';instruction='Keep right';}
       else if(turn<-120)  {arrow='↩️';instruction='Make a U-turn';}
-      else if(turn<-60)   {arrow='↱';instruction='Turn sharp right';}
-      else if(turn<-20)   {arrow='➡️';instruction='Turn right';}
-      else if(turn<-5)    {arrow='↗️';instruction='Keep right';}
+      else if(turn<-60)   {arrow='↰';instruction='Turn sharp left';}
+      else if(turn<-20)   {arrow='⬅️';instruction='Turn left';}
+      else if(turn<-5)    {arrow='↖️';instruction='Keep left';}
       else                {arrow='⬆️';instruction='Continue straight';}
       turns.push({routeIdx:i,arrow,instruction,lat:curr[0],lng:curr[1]});
     }
@@ -2953,7 +2988,13 @@ function bearingDiff(b1,b2){let diff=b2-b1;while(diff>180)diff-=360;while(diff<-
 // ── Nav HUD ───────────────────────────────────────
 function updateNavHUD(){
   if(!navRoute||navRoute.length<2) return;
-  const nextTurn=(navTurns.length>0)?(navTurns.find(t=>t.routeIdx>=navStepIndex)||navTurns[navTurns.length-1]):{arrow:'⬆️',instruction:'Continue to destination',routeIdx:navRoute.length-1,lat:navRoute[navRoute.length-1][0],lng:navRoute[navRoute.length-1][1]};
+  const dest=navRoute[navRoute.length-1];
+  const distToDest=gpsPosition?haversineCoords(gpsPosition.lat,gpsPosition.lng,dest[0],dest[1]):Infinity;
+  // Only show "arrived" when within 20m of actual destination
+  const arrived=distToDest<20;
+  const nextTurn=arrived
+    ?{arrow:'🏁',instruction:'You have arrived at your destination',routeIdx:navRoute.length-1,lat:dest[0],lng:dest[1]}
+    :((navTurns.length>0)?(navTurns.find(t=>t.routeIdx>navStepIndex&&t.arrow!=='🏁')||navTurns[navTurns.length-2]||navTurns[navTurns.length-1]):{arrow:'⬆️',instruction:'Continue to destination',routeIdx:navRoute.length-1,lat:dest[0],lng:dest[1]});
   let distToTurn=gpsPosition?haversineCoords(gpsPosition.lat,gpsPosition.lng,nextTurn.lat,nextTurn.lng):0;
   let remaining=0;
   for(let i=navStepIndex;i<navRoute.length-1;i++) remaining+=haversineCoords(navRoute[i][0],navRoute[i][1],navRoute[i+1][0],navRoute[i+1][1]);
