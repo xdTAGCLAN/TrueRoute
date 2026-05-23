@@ -114,7 +114,96 @@
 
   input[type=range] { accent-color: var(--accent3); }
 
-  /* GPS / Navigation Styles */
+  /* ── Speed sign (nav overlay) ───────────────────── */
+  #nav-speed-sign {
+    position: absolute; top: 160px; right: 12px; z-index: 600;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    width: 62px; height: 62px;
+    background: #fff; border: 5px solid #cc0000;
+    border-radius: 50%; box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    pointer-events: none;
+  }
+  #nav-speed-sign.visible { display: flex; }
+  #nav-speed-sign-val {
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 20px; color: #111; line-height: 1;
+    margin-top: 2px;
+  }
+  #nav-speed-sign-unit {
+    font-family: 'Space Mono', monospace; font-size: 7px;
+    color: #555; letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  /* ── Data usage modal ───────────────────────────── */
+  #data-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    z-index: 2000; display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #data-modal-overlay.visible { display: flex; }
+  #data-modal {
+    background: var(--surface); border: 1px solid var(--accent3);
+    border-radius: 8px; padding: 24px; width: 300px; max-width: 90vw;
+    display: flex; flex-direction: column; gap: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+  #data-modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  #data-modal-title {
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px;
+    color: var(--accent3); letter-spacing: 1px; text-transform: uppercase;
+  }
+  #data-modal-close {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1;
+    transition: color 0.2s;
+  }
+  #data-modal-close:hover { color: var(--accent2); }
+  .data-stat-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid var(--border); padding-bottom: 8px;
+  }
+  .data-stat-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .data-stat-key { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .data-stat-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--accent); }
+  #data-modal-reset {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 1px;
+    text-transform: uppercase; padding: 8px; border-radius: 4px; cursor: pointer;
+    transition: all 0.2s; width: 100%;
+  }
+  #data-modal-reset:hover { border-color: var(--accent2); color: var(--accent2); }
+  #data-btn {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border); font-family: 'Space Mono', monospace;
+    font-size: 10px; padding: 10px; border-radius: 4px; cursor: pointer;
+    transition: all 0.2s; width: 100%; letter-spacing: 1px; text-transform: uppercase;
+  }
+  #data-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  /* ── Map rotation during navigation ─────────────── */
+  body.nav-rotating #map {
+    /* The map container itself doesn't rotate — we rotate the tile pane via JS */
+  }
+  /* Counter-rotate the GPS marker and UI overlays so they stay upright */
+  body.nav-rotating .leaflet-marker-pane,
+  body.nav-rotating .leaflet-shadow-pane,
+  body.nav-rotating .leaflet-overlay-pane svg {
+    /* These rotate opposite to the map so icons stay upright */
+    transform-origin: center center;
+  }
+
+  /* GPS dot gets a directional arrow shape during nav rotation */
+  .gps-dot-outer.heading {
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    background: rgba(68,136,255,0.35);
+    border-color: var(--accent3);
+  }
+  .gps-dot-outer.heading .gps-dot-inner {
+    transform: rotate(45deg);
+  }
   #gps-btn {
     background: transparent; color: var(--accent3);
     border: 1px solid var(--accent3); font-family: 'Space Mono', monospace;
@@ -554,6 +643,7 @@
     <button id="clear-btn" onclick="clearAll()">Clear</button>
     <button id="gps-btn" onclick="toggleGPS()">📍 Use My GPS Location</button>
     <button id="nav-btn" onclick="toggleNavigation()">🧭 Start Navigation</button>
+    <button id="data-btn" onclick="openDataModal()">📊 Data Usage</button>
 
     <!-- Status / stats -->
     <div id="status-box">
@@ -681,6 +771,12 @@
   <!-- Share toast -->
   <div id="share-toast"></div>
 
+  <!-- Nav speed sign -->
+  <div id="nav-speed-sign">
+    <div id="nav-speed-sign-val">—</div>
+    <div id="nav-speed-sign-unit">km/h</div>
+  </div>
+
   <!-- Navigation HUD -->
   <div id="nav-hud">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px 0;">
@@ -709,12 +805,76 @@
       <div class="nav-stat"><div class="nav-stat-val" id="nav-remain-dist">—</div><div class="nav-stat-lbl">Remaining</div></div>
       <div class="nav-stat"><div class="nav-stat-val" id="nav-total-dist">—</div><div class="nav-stat-lbl">Total</div></div>
       <div class="nav-stat"><div class="nav-stat-val" id="nav-eta">—</div><div class="nav-stat-lbl">ETA</div></div>
-      <div class="nav-stat"><div class="nav-stat-val" id="nav-speed">—</div><div class="nav-stat-lbl">km/h</div></div>
+      <div class="nav-stat"><div class="nav-stat-val" id="nav-arrival">—</div><div class="nav-stat-lbl">Arrives</div></div>
     </div>
   </div>
 </div>
 
 <script>
+// ═══════════════════════════════════════════════════════════════════════════
+// DATA USAGE TRACKING
+// ═══════════════════════════════════════════════════════════════════════════
+const dataUsage = {
+  osmFetch: 0,      // bytes from Overpass API fetches
+  geocoding: 0,     // bytes from Nominatim geocoding
+  tileFetches: 0,   // estimated tile bytes
+  tileCount: 0,     // number of tiles loaded
+  reroutes: 0,      // bytes from reroute fetches
+  totalRequests: 0, // total network requests tracked
+};
+
+function trackBytes(bytes, category) {
+  dataUsage[category] = (dataUsage[category] || 0) + bytes;
+  dataUsage.totalRequests++;
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+function totalDataUsed() {
+  return dataUsage.osmFetch + dataUsage.geocoding + dataUsage.tileFetches + dataUsage.reroutes;
+}
+
+function openDataModal() {
+  const total = totalDataUsed();
+  document.getElementById('du-osm').textContent = formatBytes(dataUsage.osmFetch);
+  document.getElementById('du-geocoding').textContent = formatBytes(dataUsage.geocoding);
+  document.getElementById('du-tiles').textContent = formatBytes(dataUsage.tileFetches) + ' (~' + dataUsage.tileCount + ' tiles)';
+  document.getElementById('du-reroutes').textContent = formatBytes(dataUsage.reroutes);
+  document.getElementById('du-total').textContent = formatBytes(total);
+  document.getElementById('data-modal-overlay').classList.add('visible');
+}
+
+function closeDataModal() {
+  document.getElementById('data-modal-overlay').classList.remove('visible');
+}
+
+function resetDataUsage() {
+  dataUsage.osmFetch = 0;
+  dataUsage.geocoding = 0;
+  dataUsage.tileFetches = 0;
+  dataUsage.tileCount = 0;
+  dataUsage.reroutes = 0;
+  dataUsage.totalRequests = 0;
+  openDataModal(); // refresh display
+}
+
+// Track map tile loads
+function hookTileTracking() {
+  const origAddLayer = L.TileLayer.prototype._tileOnLoad;
+  // Estimate ~20KB per tile on average (OSM tiles vary ~5–80KB)
+  const AVG_TILE_BYTES = 20 * 1024;
+  document.addEventListener('load', function(e) {
+    if (e.target && e.target.tagName === 'IMG' && e.target.src && e.target.src.includes('tile')) {
+      dataUsage.tileFetches += AVG_TILE_BYTES;
+      dataUsage.tileCount++;
+    }
+  }, true);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -834,6 +994,12 @@ function initMap() {
   updateCanvasSize();
   window.addEventListener('resize', () => setTimeout(updateCanvasSize, 100));
   map.on('move zoomend viewreset resize', () => { setTimeout(updateCanvasSize, 50); scheduleRedraw(); });
+  // Reapply nav rotation after any Leaflet map move (pane transforms get reset)
+  map.on('moveend zoomend', () => {
+    if (navActive && isMobile() && currentDisplayBearing !== 0) {
+      applyMapRotation(currentDisplayBearing);
+    }
+  });
   window.addEventListener('scroll', updateCanvasSize);
 
   const slider = document.getElementById('viz-speed');
@@ -850,6 +1016,9 @@ function initMap() {
 
   // Compass rotation when map rotates (for future use, and for GPS heading)
   map.on('rotate', updateCompassFromMap);
+
+  // Start tile data tracking
+  hookTileTracking();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1479,6 +1648,7 @@ async function geocodeInputs() {
     const res = await fetch(url, { headers: {'Accept-Language':'en'} });
     const data = await res.json();
     if (!data.length) throw new Error(`Could not find: "${q}"`);
+    trackBytes(new Blob([JSON.stringify(data)]).size, 'geocoding');
     return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
   }
   try {
@@ -1569,6 +1739,11 @@ async function fetchRoadGraph(bbox, mode='car', signal) {
     }
     let data; try { data=JSON.parse(text); } catch(e) { throw new Error(`Bad JSON from ${hostname}`); }
     if (!data.elements||data.elements.length===0) throw new Error(`No road data returned from ${hostname}`);
+    // Track data usage
+    const isReroute = (lastRerouteTime > 0 && Date.now() - lastRerouteTime < 5000);
+    const byteSize = new Blob([text]).size;
+    if (isReroute) trackBytes(byteSize, 'reroutes');
+    else trackBytes(byteSize, 'osmFetch');
     return data;
   }
   let lastErr;
@@ -2759,6 +2934,10 @@ let navActive=false, navRoute=null, navStepIndex=0, navTurns=[], navWakeLock=nul
 let rerouteTimeout=null, lastRerouteTime=0, navTotalDistM=0;
 let autoRerouteEnabled=true; // default on
 let reroutePromptShown=false;
+let navBearing=0;          // current map rotation bearing (degrees, 0=north)
+let prevGpsPos=null;       // previous GPS fix for bearing fallback
+let navRotationRAF=null;   // rAF handle for smooth bearing interpolation
+let currentDisplayBearing=0; // smoothly interpolated bearing shown on screen
 
 function toggleAutoReroute() {
   autoRerouteEnabled = !autoRerouteEnabled;
@@ -2847,8 +3026,12 @@ function startNavigation() {
 function stopNavigation() {
   navActive=false; navRoute=null; navTurns=[]; navStepIndex=0; navTotalDistM=0;
   document.body.classList.remove('nav-active');
+  if(navRotationRAF){cancelAnimationFrame(navRotationRAF);navRotationRAF=null;}
+  prevGpsPos=null;
+  resetMapRotation();
   const hud=document.getElementById('nav-hud');
   hud.classList.remove('visible');
+  document.getElementById('nav-speed-sign').classList.remove('visible');
   const mapWrap=document.getElementById('map-wrap');
   if(hud.parentElement!==mapWrap) mapWrap.appendChild(hud);
   document.documentElement.style.removeProperty('--hud-h');
@@ -2877,6 +3060,7 @@ function updateNavigation() {
   else {
     if(closestIdx>navStepIndex) navStepIndex=closestIdx;
     updateNavHUD();
+    updateNavBearing(lat, lng);
     const targetLL=getOffsetCenter(lat,lng);
     map.setView(targetLL,map.getZoom(),{animate:true,duration:0.5});
   }
@@ -2985,6 +3169,121 @@ function generateTurns(route) {
 function getBearing(lat1,lng1,lat2,lng2){const dLng=(lng2-lng1)*Math.PI/180;const lat1R=lat1*Math.PI/180;const lat2R=lat2*Math.PI/180;const y=Math.sin(dLng)*Math.cos(lat2R);const x=Math.cos(lat1R)*Math.sin(lat2R)-Math.sin(lat1R)*Math.cos(lat2R)*Math.cos(dLng);return(Math.atan2(y,x)*180/Math.PI+360)%360;}
 function bearingDiff(b1,b2){let diff=b2-b1;while(diff>180)diff-=360;while(diff<-180)diff+=360;return diff;}
 
+// ── Map bearing rotation ──────────────────────────
+function isMobile() {
+  return window.matchMedia('(max-width:700px)').matches;
+}
+
+// Smoothly interpolate bearing (shortest arc)
+function lerpBearing(a, b, t) {
+  let diff = b - a;
+  while (diff > 180) diff -= 360;
+  while (diff < -180) diff += 360;
+  return a + diff * t;
+}
+
+// Apply CSS rotation to Leaflet's tile + vector panes,
+// and counter-rotate the marker/overlay panes so icons stay upright.
+function applyMapRotation(bearing) {
+  const mapEl = document.getElementById('map');
+  const mapWrap = document.getElementById('map-wrap');
+  const cx = mapEl.offsetWidth / 2;
+  const cy = mapEl.offsetHeight / 2;
+  const rot = `rotate(${bearing}deg)`;
+
+  // Rotate tile pane, overlay SVG layer, and shadow pane
+  const toRotate = mapEl.querySelectorAll(
+    '.leaflet-tile-pane, .leaflet-overlay-pane, .leaflet-shadow-pane'
+  );
+  toRotate.forEach(el => {
+    el.style.transformOrigin = `${cx}px ${cy}px`;
+    el.style.transform = rot;
+  });
+
+  // Counter-rotate marker pane so markers stay upright
+  const markerPane = mapEl.querySelector('.leaflet-marker-pane');
+  if (markerPane) {
+    markerPane.style.transformOrigin = `${cx}px ${cy}px`;
+    markerPane.style.transform = `rotate(${-bearing}deg)`;
+  }
+
+  // Counter-rotate the viz canvas
+  const vizCanvas = document.getElementById('viz-canvas');
+  if (vizCanvas) {
+    vizCanvas.style.transformOrigin = `${cx}px ${cy}px`;
+    vizCanvas.style.transform = rot; // canvas content is already world-space, rotate with map
+  }
+
+  // Update the compass widget: needle points to north = rotate by -bearing so it stays north-up
+  // (the compass widget is not inside a Leaflet pane so it doesn't rotate with the map)
+  const needle = document.getElementById('compass-needle');
+  if (needle) {
+    needle.style.transform = `rotate(${-bearing}deg)`;
+    document.getElementById('compass-wrap').classList.add('visible');
+  }
+}
+
+function resetMapRotation() {
+  const mapEl = document.getElementById('map');
+  const panes = mapEl.querySelectorAll(
+    '.leaflet-tile-pane, .leaflet-overlay-pane, .leaflet-shadow-pane, .leaflet-marker-pane'
+  );
+  panes.forEach(el => { el.style.transform = ''; el.style.transformOrigin = ''; });
+  const vizCanvas = document.getElementById('viz-canvas');
+  if (vizCanvas) { vizCanvas.style.transform = ''; vizCanvas.style.transformOrigin = ''; }
+  currentDisplayBearing = 0;
+  navBearing = 0;
+}
+
+// Called every GPS update — works out the best bearing and schedules smooth rotation
+function updateNavBearing(lat, lng) {
+  if (!isMobile()) return; // rotation only on mobile
+
+  let bearing = null;
+
+  // Prefer device heading (from magnetometer via geolocation API)
+  if (gpsPosition && gpsPosition.heading != null && gpsPosition.heading >= 0) {
+    bearing = gpsPosition.heading;
+  }
+
+  // Fallback: compute bearing from movement along route
+  if (bearing == null && navRoute && navStepIndex < navRoute.length - 1) {
+    // Look a few points ahead for a stable direction
+    const ahead = Math.min(navStepIndex + 3, navRoute.length - 1);
+    bearing = getBearing(lat, lng, navRoute[ahead][0], navRoute[ahead][1]);
+  }
+
+  // Fallback: bearing from previous GPS position
+  if (bearing == null && prevGpsPos) {
+    const d = haversineCoords(prevGpsPos.lat, prevGpsPos.lng, lat, lng);
+    if (d > 2) { // only update if moved >2m to avoid jitter while stationary
+      bearing = getBearing(prevGpsPos.lat, prevGpsPos.lng, lat, lng);
+    }
+  }
+
+  if (bearing == null) return;
+
+  navBearing = bearing;
+  prevGpsPos = { lat, lng };
+
+  // Animate smoothly to target bearing
+  if (navRotationRAF) cancelAnimationFrame(navRotationRAF);
+  (function animateRotation() {
+    if (!navActive) return;
+    currentDisplayBearing = lerpBearing(currentDisplayBearing, navBearing, 0.12);
+    applyMapRotation(currentDisplayBearing);
+    // Keep animating until close enough
+    const diff = Math.abs(lerpBearing(currentDisplayBearing, navBearing, 1) - currentDisplayBearing);
+    if (diff > 0.3) {
+      navRotationRAF = requestAnimationFrame(animateRotation);
+    } else {
+      currentDisplayBearing = navBearing;
+      applyMapRotation(currentDisplayBearing);
+      navRotationRAF = null;
+    }
+  })();
+}
+
 // ── Nav HUD ───────────────────────────────────────
 function updateNavHUD(){
   if(!navRoute||navRoute.length<2) return;
@@ -3013,7 +3312,22 @@ function updateNavHUD(){
   document.getElementById('nav-remain-dist').textContent=remainStr;
   document.getElementById('nav-total-dist').textContent=totalStr;
   document.getElementById('nav-eta').textContent=etaStr;
-  document.getElementById('nav-speed').textContent=speedKmh!=null?speedKmh+'':'—';
+
+  // Speed sign (top-right overlay)
+  const speedSign=document.getElementById('nav-speed-sign');
+  const speedSignVal=document.getElementById('nav-speed-sign-val');
+  speedSign.classList.add('visible');
+  speedSignVal.textContent=speedKmh!=null?speedKmh:'—';
+
+  // Arrival time (clock)
+  const arrivalEl=document.getElementById('nav-arrival');
+  if(etaSecs>0){
+    const arrivalTime=new Date(Date.now()+etaSecs*1000);
+    const h=arrivalTime.getHours().toString().padStart(2,'0');
+    const m=arrivalTime.getMinutes().toString().padStart(2,'0');
+    arrivalEl.textContent=h+':'+m;
+  } else { arrivalEl.textContent='—'; }
+
   document.getElementById('nav-progress-fill').style.width=progressPct+'%';
 }
 
@@ -3028,5 +3342,36 @@ function showNavButton(){document.getElementById('nav-btn').classList.add('nav-b
 // ═══════════════════════════════════════════════════════════════════════════
 initMap();
 </script>
+<!-- Data Usage Modal -->
+<div id="data-modal-overlay" onclick="if(event.target===this)closeDataModal()">
+  <div id="data-modal">
+    <div id="data-modal-header">
+      <span id="data-modal-title">📊 Data Usage</span>
+      <button id="data-modal-close" onclick="closeDataModal()">✕</button>
+    </div>
+    <div class="data-stat-row">
+      <span class="data-stat-key">Route data (OSM)</span>
+      <span class="data-stat-val" id="du-osm">0 B</span>
+    </div>
+    <div class="data-stat-row">
+      <span class="data-stat-key">Geocoding</span>
+      <span class="data-stat-val" id="du-geocoding">0 B</span>
+    </div>
+    <div class="data-stat-row">
+      <span class="data-stat-key">Map tiles</span>
+      <span class="data-stat-val" id="du-tiles">0 B</span>
+    </div>
+    <div class="data-stat-row">
+      <span class="data-stat-key">Reroutes</span>
+      <span class="data-stat-val" id="du-reroutes">0 B</span>
+    </div>
+    <div class="data-stat-row" style="border-top:1px solid var(--accent3);padding-top:8px;margin-top:4px;">
+      <span class="data-stat-key" style="color:var(--text);">Total used</span>
+      <span class="data-stat-val" id="du-total" style="color:var(--accent3);">0 B</span>
+    </div>
+    <div style="font-size:9px;color:var(--muted);line-height:1.6;">Map tile sizes are estimated (~20 KB avg). Resets on page reload.</div>
+    <button id="data-modal-reset" onclick="resetDataUsage()">↺ Reset counters</button>
+  </div>
+</div>
 </body>
 </html>
