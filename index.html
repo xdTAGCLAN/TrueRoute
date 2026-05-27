@@ -30,12 +30,21 @@
   body { font-family: 'Space Mono', monospace; background: var(--bg); color: var(--text); height: 100vh; height: 100dvh; display: flex; overflow: hidden; }
 
   #panel { width: var(--panel-w); min-width: var(--panel-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 1000; overflow-y: auto; }
-  #panel-header { padding: 24px 20px 16px; border-bottom: 1px solid var(--border); }
+  #panel-header { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+  .header-bar { display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; gap: 10px; }
+  .header-title { min-width: 0; text-align: center; }
   .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; letter-spacing: -0.5px; color: var(--accent); text-transform: uppercase; }
   .logo span { color: var(--text); }
   .tagline { font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 4px; }
+  .header-icon-btn {
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 6px; cursor: pointer; transition: all 0.2s; font-size: 16px;
+  }
+  .header-icon-btn:hover { border-color: var(--accent3); color: var(--accent3); background: rgba(68,136,255,0.08); }
+  #account-menu-btn.signed-in { border-color: var(--accent); color: var(--accent); }
 
-  #panel-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 20px; }
+  #panel-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 14px; }
   .field-group { display: flex; flex-direction: column; gap: 8px; }
   .field-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
@@ -47,6 +56,16 @@
   .field-input::placeholder { color: var(--muted); }
   .field-hint { font-size: 9px; color: var(--muted); line-height: 1.6; }
   .divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+  .menu-section { border-top: 1px solid var(--border); padding-top: 10px; }
+  .menu-section > summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+    font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+    padding: 2px 0; user-select: none;
+  }
+  .menu-section > summary::-webkit-details-marker { display: none; }
+  .menu-section > summary::after { content: '+'; color: var(--accent3); font-size: 14px; line-height: 1; }
+  .menu-section[open] > summary::after { content: '-'; }
+  .menu-section-body { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; }
 
   .mode-row { display: flex; gap: 6px; }
   .mode-btn { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--muted); font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 8px 4px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
@@ -463,8 +482,14 @@
 
 <div id="panel">
   <div id="panel-header">
-    <div class="logo">True<span>Route</span></div>
+    <div class="header-bar">
+      <button class="header-icon-btn" id="account-menu-btn" onclick="openAccountModal(true)" title="Account">👤</button>
+      <div class="header-title">
+        <div class="logo">True<span>Route</span></div>
     <div class="tagline" id="algo-tagline">OSM Pathfinder · A★ Heuristic</div>
+      </div>
+      <button class="header-icon-btn" onclick="openDataModal()" title="Data usage">📊</button>
+    </div>
   </div>
 
   <div id="panel-body">
@@ -535,6 +560,10 @@
         <div style="font-size:9px;color:var(--muted);line-height:1.5;margin-top:4px;">Off: skip paths where you must walk your bike.</div>
       </div>
     </div>
+
+    <details class="menu-section">
+      <summary>Route options</summary>
+      <div class="menu-section-body">
 
     <!-- Avoid options -->
     <div class="field-group" id="avoid-section">
@@ -620,7 +649,12 @@
       </div>
     </div>
 
-    <hr class="divider"/>
+      </div>
+    </details>
+
+    <details class="menu-section">
+      <summary>Advanced tools</summary>
+      <div class="menu-section-body">
 
     <!-- Pre-download area -->
     <div class="field-group" id="predownload-section">
@@ -687,7 +721,8 @@
       </div>
     </div>
 
-    <hr class="divider"/>
+      </div>
+    </details>
 
     <!-- Action buttons -->
     <button id="run-btn" onclick="findRoute()" disabled>Find True Shortest Path</button>
@@ -695,26 +730,6 @@
     <button id="clear-btn" onclick="clearAll()">Clear</button>
     <button id="gps-btn" onclick="toggleGPS()">📍 Use My GPS Location</button>
     <button id="nav-btn" onclick="toggleNavigation()">🧭 Start Navigation</button>
-    <button id="data-btn" onclick="openDataModal()">📊 Data Usage</button>
-
-    <div id="account-card">
-      <div class="account-top">
-        <div>
-          <div class="field-label">Account</div>
-          <div class="account-name" id="account-card-name">Guest explorer</div>
-        </div>
-        <span class="account-badge" id="account-card-badge">Local</span>
-      </div>
-      <div class="account-grid">
-        <div class="account-mini-stat"><div class="account-mini-val" id="account-card-routes">0</div><div class="account-mini-lbl">Routes</div></div>
-        <div class="account-mini-stat"><div class="account-mini-val" id="account-card-nav">0 m</div><div class="account-mini-lbl">Navigated</div></div>
-      </div>
-      <div class="account-actions">
-        <button onclick="openAccountModal()">Profile</button>
-        <button onclick="openAccountModal(true)" id="account-card-action">Create</button>
-      </div>
-    </div>
-
     <!-- Status / stats -->
     <div id="status-box">
       <div id="status-text">Initializing…</div>
@@ -753,7 +768,9 @@
       <button onclick="fetchElevation()" id="elev-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:10px;border-radius:4px;cursor:pointer;width:100%;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent3)';this.style.color='var(--accent3)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">📈 Elevation Profile</button>
     </div>
 
-    <hr class="divider" id="gpx-import-divider"/>
+    <details class="menu-section" id="gpx-import-divider">
+      <summary>GPX import</summary>
+      <div class="menu-section-body">
 
     <!-- GPX Import (always visible) -->
     <div class="field-group">
@@ -772,6 +789,9 @@
         </div>
       </div>
     </div>
+
+      </div>
+    </details>
 
   </div>
 </div>
@@ -1051,6 +1071,11 @@ function updateAccountUI() {
   const stats = currentStats();
   const card = document.getElementById('account-card');
   if (card) card.classList.toggle('signed-in', signedIn);
+  const menuBtn = document.getElementById('account-menu-btn');
+  if (menuBtn) {
+    menuBtn.classList.toggle('signed-in', signedIn);
+    menuBtn.title = signedIn ? `Account: ${account.name}` : 'Create or sign in';
+  }
   const name = document.getElementById('account-card-name');
   if (name) name.textContent = signedIn ? account.name : 'Guest explorer';
   const badge = document.getElementById('account-card-badge');
