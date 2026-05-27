@@ -1,5 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/", "destination": "/trueroute_nav.html" }
-  ]
-}
