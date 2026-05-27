@@ -182,6 +182,50 @@
   }
   #data-btn:hover { border-color: var(--accent3); color: var(--accent3); }
 
+  /* Account / profile */
+  #account-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 14px; display: flex; flex-direction: column; gap: 10px;
+  }
+  #account-card.signed-in { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(0,255,136,0.08) inset; }
+  .account-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .account-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .account-badge { font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 2px 7px; flex-shrink: 0; }
+  .account-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .account-mini-stat { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 4px; padding: 8px; min-width: 0; }
+  .account-mini-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; color: var(--accent3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .account-mini-lbl { font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+  .account-actions { display: flex; gap: 6px; }
+  .account-actions button, #account-create-btn, #account-reset-btn, #account-signout-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 1px;
+    text-transform: uppercase; padding: 8px; border-radius: 4px; cursor: pointer;
+    transition: all 0.2s; flex: 1;
+  }
+  .account-actions button:hover, #account-create-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+  #account-create-btn { background: var(--accent); border-color: var(--accent); color: #000; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; }
+  #account-reset-btn:hover, #account-signout-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  #account-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    z-index: 2000; display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #account-modal-overlay.visible { display: flex; }
+  #account-modal {
+    background: var(--surface); border: 1px solid var(--accent);
+    border-radius: 8px; padding: 24px; width: 360px; max-width: 92vw;
+    display: flex; flex-direction: column; gap: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+  #account-modal-header { display: flex; justify-content: space-between; align-items: center; }
+  #account-modal-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--accent); letter-spacing: 1px; text-transform: uppercase; }
+  #account-modal-close { background: transparent; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; }
+  #account-modal-close:hover { color: var(--accent2); }
+  #account-details { display: none; flex-direction: column; gap: 12px; }
+  #account-details.visible { display: flex; }
+  .account-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .account-detail-stat { border: 1px solid var(--border); border-radius: 4px; padding: 10px; background: var(--bg); }
+
   /* ── Map rotation during navigation ─────────────── */
   body.nav-rotating #map {
     /* The map container itself doesn't rotate — we rotate the tile pane via JS */
@@ -645,6 +689,24 @@
     <button id="nav-btn" onclick="toggleNavigation()">🧭 Start Navigation</button>
     <button id="data-btn" onclick="openDataModal()">📊 Data Usage</button>
 
+    <div id="account-card">
+      <div class="account-top">
+        <div>
+          <div class="field-label">Account</div>
+          <div class="account-name" id="account-card-name">Guest explorer</div>
+        </div>
+        <span class="account-badge" id="account-card-badge">Local</span>
+      </div>
+      <div class="account-grid">
+        <div class="account-mini-stat"><div class="account-mini-val" id="account-card-routes">0</div><div class="account-mini-lbl">Routes</div></div>
+        <div class="account-mini-stat"><div class="account-mini-val" id="account-card-nav">0 m</div><div class="account-mini-lbl">Navigated</div></div>
+      </div>
+      <div class="account-actions">
+        <button onclick="openAccountModal()">Profile</button>
+        <button onclick="openAccountModal(true)" id="account-card-action">Create</button>
+      </div>
+    </div>
+
     <!-- Status / stats -->
     <div id="status-box">
       <div id="status-text">Initializing…</div>
@@ -865,7 +927,7 @@ function resetDataUsage() {
 // Track map tile loads
 function hookTileTracking() {
   const origAddLayer = L.TileLayer.prototype._tileOnLoad;
-  // Estimate ~20KB per tile on average (OSM tiles vary ~5–80KB)
+  // Estimate ~20KB per tile on average (OSM tiles vary ~5-80KB)
   const AVG_TILE_BYTES = 20 * 1024;
   document.addEventListener('load', function(e) {
     if (e.target && e.target.tagName === 'IMG' && e.target.src && e.target.src.includes('tile')) {
@@ -873,6 +935,322 @@ function hookTileTracking() {
       dataUsage.tileCount++;
     }
   }, true);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ACCOUNT + LIFETIME STATS
+// ═══════════════════════════════════════════════════════════════════════════
+const ACCOUNT_STORAGE_KEY = 'trueroute_account_v1';
+const ACCOUNT_API_BASE = '';
+const emptyAccountStats = () => ({
+  routesGenerated: 0,
+  generatedDistanceM: 0,
+  navigatedDistanceM: 0,
+  navigationSessions: 0,
+  reroutesAccepted: 0,
+  totalComputeMs: 0,
+  nodesVisited: 0,
+  roadSegments: 0,
+  longestRouteM: 0,
+  routeModes: { car: 0, bike: 0, walk: 0 },
+  favoriteMode: 'car',
+  lastRouteAt: null,
+  createdAt: new Date().toISOString()
+});
+
+let account = loadAccount();
+let accountServerAvailable = false;
+let navSessionLastPos = null;
+let navSessionDistanceM = 0;
+let navSessionStartedAt = null;
+let pendingNavigationDistanceM = 0;
+let navigationFlushTimer = null;
+
+function loadAccount() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACCOUNT_STORAGE_KEY) || 'null');
+    if (!saved) return null;
+    return {
+      id: saved.id || crypto.randomUUID?.() || String(Date.now()),
+      name: saved.name || 'TrueRoute user',
+      email: saved.email || '',
+      stats: { ...emptyAccountStats(), ...(saved.stats || {}) }
+    };
+  } catch(e) {
+    return null;
+  }
+}
+
+function saveAccount() {
+  if (!account) return;
+  try { localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(account)); } catch(e) {}
+  updateAccountUI();
+}
+
+function normalizeAccount(serverUser) {
+  if (!serverUser) return null;
+  return {
+    id: serverUser.id,
+    name: serverUser.name || 'TrueRoute user',
+    email: serverUser.email || '',
+    stats: { ...emptyAccountStats(), ...(serverUser.stats || {}) }
+  };
+}
+
+async function accountApi(path, options={}) {
+  const res = await fetch(ACCOUNT_API_BASE + path, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Account request failed.');
+  accountServerAvailable = true;
+  return data;
+}
+
+async function initAccount() {
+  updateAccountUI();
+  try {
+    const data = await accountApi('/api/auth/me');
+    account = normalizeAccount(data.user);
+    if (account) saveAccount();
+  } catch(e) {
+    accountServerAvailable = false;
+    updateAccountUI();
+  }
+}
+
+function formatDistance(meters) {
+  if (!Number.isFinite(meters) || meters <= 0) return '0 m';
+  return meters >= 1000 ? (meters / 1000).toFixed(meters >= 10000 ? 1 : 2) + ' km' : Math.round(meters) + ' m';
+}
+
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return '0s';
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return sec + 's';
+  const min = Math.floor(sec / 60);
+  return min < 60 ? min + 'm ' + (sec % 60) + 's' : Math.floor(min / 60) + 'h ' + (min % 60) + 'm';
+}
+
+function currentStats() {
+  return account ? account.stats : emptyAccountStats();
+}
+
+function updateAccountUI() {
+  const signedIn = !!account;
+  const stats = currentStats();
+  const card = document.getElementById('account-card');
+  if (card) card.classList.toggle('signed-in', signedIn);
+  const name = document.getElementById('account-card-name');
+  if (name) name.textContent = signedIn ? account.name : 'Guest explorer';
+  const badge = document.getElementById('account-card-badge');
+  if (badge) badge.textContent = signedIn ? (accountServerAvailable ? 'Synced' : 'Cached') : 'Local';
+  const routes = document.getElementById('account-card-routes');
+  if (routes) routes.textContent = stats.routesGenerated.toLocaleString();
+  const nav = document.getElementById('account-card-nav');
+  if (nav) nav.textContent = formatDistance(stats.navigatedDistanceM);
+  const action = document.getElementById('account-card-action');
+  if (action) action.textContent = signedIn ? 'Stats' : 'Create';
+
+  const details = document.getElementById('account-details');
+  const form = document.getElementById('account-form');
+  if (details) details.classList.toggle('visible', signedIn);
+  if (form) form.style.display = signedIn ? 'none' : 'flex';
+  const modalName = document.getElementById('account-modal-name');
+  if (modalName) modalName.textContent = signedIn ? account.name : 'Create Account';
+  const joined = document.getElementById('account-joined');
+  if (joined && signedIn) joined.textContent = new Date(stats.createdAt).toLocaleDateString();
+
+  const fields = {
+    'acct-routes': stats.routesGenerated.toLocaleString(),
+    'acct-generated': formatDistance(stats.generatedDistanceM),
+    'acct-navigated': formatDistance(stats.navigatedDistanceM),
+    'acct-sessions': stats.navigationSessions.toLocaleString(),
+    'acct-longest': formatDistance(stats.longestRouteM),
+    'acct-compute': formatDuration(stats.totalComputeMs),
+    'acct-nodes': stats.nodesVisited.toLocaleString(),
+    'acct-segments': stats.roadSegments.toLocaleString(),
+    'acct-mode': (stats.favoriteMode || 'car').toUpperCase(),
+    'acct-last': stats.lastRouteAt ? new Date(stats.lastRouteAt).toLocaleString() : 'Never'
+  };
+  Object.entries(fields).forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  });
+}
+
+function openAccountModal(focusCreate=false) {
+  updateAccountUI();
+  document.getElementById('account-modal-overlay').classList.add('visible');
+  if (focusCreate && !account) setTimeout(() => document.getElementById('account-name-input')?.focus(), 0);
+}
+
+function closeAccountModal() {
+  document.getElementById('account-modal-overlay').classList.remove('visible');
+}
+
+async function createAccount() {
+  const nameInput = document.getElementById('account-name-input');
+  const emailInput = document.getElementById('account-email-input');
+  const passwordInput = document.getElementById('account-password-input');
+  const name = (nameInput?.value || '').trim();
+  const email = (emailInput?.value || '').trim();
+  const password = passwordInput?.value || '';
+  if (!name) {
+    showError('Please enter a display name for your account.');
+    nameInput?.focus();
+    return;
+  }
+  if (!email || password.length < 8) {
+    showError('Enter an email and a password of at least 8 characters.');
+    return;
+  }
+  try {
+    const data = await accountApi('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, password })
+    });
+    account = normalizeAccount(data.user);
+    saveAccount();
+    showError('');
+  } catch(e) {
+    showError(e.message || 'Could not create account.');
+  }
+}
+
+async function loginAccount() {
+  const email = (document.getElementById('account-email-input')?.value || '').trim();
+  const password = document.getElementById('account-password-input')?.value || '';
+  if (!email || !password) {
+    showError('Enter your email and password.');
+    return;
+  }
+  try {
+    const data = await accountApi('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    });
+    account = normalizeAccount(data.user);
+    saveAccount();
+    showError('');
+  } catch(e) {
+    showError(e.message || 'Could not sign in.');
+  }
+}
+
+async function signOutAccount() {
+  try { await accountApi('/api/auth/logout', { method: 'POST', body: '{}' }); } catch(e) {}
+  account = null;
+  accountServerAvailable = false;
+  try { localStorage.removeItem(ACCOUNT_STORAGE_KEY); } catch(e) {}
+  updateAccountUI();
+}
+
+async function resetAccountStats() {
+  if (!account) return;
+  if (!confirm('Reset all lifetime TrueRoute stats for this account?')) return;
+  try {
+    const data = await accountApi('/api/stats/reset', { method: 'POST', body: '{}' });
+    account.stats = { ...emptyAccountStats(), ...(data.stats || {}) };
+    saveAccount();
+  } catch(e) {
+    account.stats = emptyAccountStats();
+    saveAccount();
+    showError('Stats reset locally, but the server could not be reached.');
+  }
+}
+
+function recordRouteGenerated(route) {
+  if (!account || !route) return;
+  const s = account.stats;
+  s.routesGenerated++;
+  s.generatedDistanceM += route.distanceM || 0;
+  s.longestRouteM = Math.max(s.longestRouteM || 0, route.distanceM || 0);
+  s.totalComputeMs += route.computeMs || 0;
+  s.nodesVisited += route.nodesVisited || 0;
+  s.roadSegments += route.roadSegments || 0;
+  s.routeModes[route.mode] = (s.routeModes[route.mode] || 0) + 1;
+  s.favoriteMode = Object.entries(s.routeModes).sort((a,b) => b[1] - a[1])[0]?.[0] || route.mode;
+  s.lastRouteAt = new Date().toISOString();
+  saveAccount();
+  accountApi('/api/stats/route', {
+    method: 'POST',
+    body: JSON.stringify(route)
+  }).then(data => {
+    account.stats = { ...emptyAccountStats(), ...(data.stats || account.stats) };
+    saveAccount();
+  }).catch(() => { accountServerAvailable = false; updateAccountUI(); });
+}
+
+function recordRerouteAccepted() {
+  if (!account) return;
+  account.stats.reroutesAccepted = (account.stats.reroutesAccepted || 0) + 1;
+  saveAccount();
+  accountApi('/api/stats/reroute', { method: 'POST', body: '{}' })
+    .then(data => { account.stats = { ...emptyAccountStats(), ...(data.stats || account.stats) }; saveAccount(); })
+    .catch(() => { accountServerAvailable = false; updateAccountUI(); });
+}
+
+function startAccountNavigationSession(lat, lng) {
+  navSessionDistanceM = 0;
+  navSessionStartedAt = Date.now();
+  navSessionLastPos = Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+  if (account) {
+    account.stats.navigationSessions++;
+    saveAccount();
+    accountApi('/api/stats/navigation', {
+      method: 'POST',
+      body: JSON.stringify({ startedSession: true, distanceM: 0 })
+    }).then(data => {
+      account.stats = { ...emptyAccountStats(), ...(data.stats || account.stats) };
+      saveAccount();
+    }).catch(() => { accountServerAvailable = false; updateAccountUI(); });
+  }
+}
+
+function flushNavigationDistance() {
+  if (!account || pendingNavigationDistanceM <= 0) return;
+  const distanceM = pendingNavigationDistanceM;
+  pendingNavigationDistanceM = 0;
+  accountApi('/api/stats/navigation', {
+    method: 'POST',
+    body: JSON.stringify({ distanceM })
+  }).then(data => {
+    account.stats = { ...emptyAccountStats(), ...(data.stats || account.stats) };
+    saveAccount();
+  }).catch(() => {
+    pendingNavigationDistanceM += distanceM;
+    accountServerAvailable = false;
+    updateAccountUI();
+  });
+}
+
+function scheduleNavigationFlush() {
+  if (navigationFlushTimer) return;
+  navigationFlushTimer = setTimeout(() => {
+    navigationFlushTimer = null;
+    flushNavigationDistance();
+  }, 10000);
+}
+
+function recordNavigationFix(lat, lng) {
+  if (!navActive || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  if (!navSessionLastPos) {
+    navSessionLastPos = { lat, lng };
+    return;
+  }
+  const delta = haversineCoords(navSessionLastPos.lat, navSessionLastPos.lng, lat, lng);
+  navSessionLastPos = { lat, lng };
+  if (!Number.isFinite(delta) || delta < 1 || delta > 200) return;
+  navSessionDistanceM += delta;
+  if (account) {
+    account.stats.navigatedDistanceM += delta;
+    pendingNavigationDistanceM += delta;
+    saveAccount();
+    scheduleNavigationFlush();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2418,6 +2796,13 @@ async function findRoute() {
 
     hideStatus();
     showStats({dist:distKm+' km', nodes:totalNodes.toLocaleString(), edges:Math.round(edgeCount/2).toLocaleString(), time:elapsed+'s', path:fullPath.length.toLocaleString()});
+    recordRouteGenerated({
+      distanceM: totalDist,
+      computeMs: performance.now() - t0,
+      nodesVisited: totalVisited,
+      roadSegments: Math.round(edgeCount/2),
+      mode: transportMode
+    });
 
     // Build replay frames
     if (allEdgeLog.length > 0) {
@@ -2994,6 +3379,7 @@ function updateGPSPosition(pos) {
   const lat=pos.coords.latitude, lng=pos.coords.longitude;
   const speed=pos.coords.speed, heading=pos.coords.heading;
   gpsPosition={lat,lng,speed,heading};
+  recordNavigationFix(lat, lng);
   if (!gpsMarker) {
     gpsMarker=L.marker([lat,lng],{icon:L.divIcon({className:'',html:`<div class="gps-dot-outer"><div class="gps-dot-inner"></div></div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:1000}).addTo(map);
   } else { gpsMarker.setLatLng([lat,lng]); }
@@ -3013,6 +3399,7 @@ function startNavigation() {
   navTotalDistM=0;
   for(let i=0;i<navRoute.length-1;i++) navTotalDistM+=haversineCoords(navRoute[i][0],navRoute[i][1],navRoute[i+1][0],navRoute[i+1][1]);
   navTurns=generateTurns(navRoute); navStepIndex=0; navActive=true;
+  startAccountNavigationSession(gpsPosition.lat, gpsPosition.lng);
   document.body.classList.add('nav-active');
   const hud=document.getElementById('nav-hud');
   if(window.matchMedia('(max-width:700px)').matches) document.body.appendChild(hud);
@@ -3028,6 +3415,8 @@ function stopNavigation() {
   document.body.classList.remove('nav-active');
   if(navRotationRAF){cancelAnimationFrame(navRotationRAF);navRotationRAF=null;}
   prevGpsPos=null;
+  flushNavigationDistance();
+  navSessionLastPos=null; navSessionDistanceM=0; navSessionStartedAt=null;
   resetMapRotation();
   const hud=document.getElementById('nav-hud');
   hud.classList.remove('visible');
@@ -3106,6 +3495,7 @@ function scheduleReroute() {
     setPointA(gpsPosition.lat,gpsPosition.lng);
     pointB=dest;
     try {
+      recordRerouteAccepted();
       await findRoute();
       if(routeLayer){navRoute=routeLayer.getLatLngs().map(ll=>[ll.lat,ll.lng]);navTurns=generateTurns(navRoute);navStepIndex=0;}
     } catch(e){console.warn('Reroute failed:',e);}
@@ -3131,6 +3521,7 @@ async function confirmReroute() {
   setPointA(gpsPosition.lat,gpsPosition.lng);
   pointB=dest;
   try {
+    recordRerouteAccepted();
     await findRoute();
     if(routeLayer){navRoute=routeLayer.getLatLngs().map(ll=>[ll.lat,ll.lng]);navTurns=generateTurns(navRoute);navStepIndex=0;}
   } catch(e){console.warn('Reroute failed:',e);}
@@ -3365,6 +3756,7 @@ function showNavButton(){document.getElementById('nav-btn').classList.add('nav-b
 // BOOT
 // ═══════════════════════════════════════════════════════════════════════════
 initMap();
+initAccount();
 </script>
 <!-- Data Usage Modal -->
 <div id="data-modal-overlay" onclick="if(event.target===this)closeDataModal()">
@@ -3395,6 +3787,48 @@ initMap();
     </div>
     <div style="font-size:9px;color:var(--muted);line-height:1.6;">Map tile sizes are estimated (~20 KB avg). Resets on page reload.</div>
     <button id="data-modal-reset" onclick="resetDataUsage()">↺ Reset counters</button>
+  </div>
+</div>
+<!-- Account Modal -->
+<div id="account-modal-overlay" onclick="if(event.target===this)closeAccountModal()">
+  <div id="account-modal">
+    <div id="account-modal-header">
+      <span id="account-modal-title">Account</span>
+      <button id="account-modal-close" onclick="closeAccountModal()">x</button>
+    </div>
+    <div id="account-form" style="display:flex;flex-direction:column;gap:10px;">
+      <div class="field-hint">Create or sign into your TrueRoute account. On Vercel, stats sync through the API routes.</div>
+      <input class="field-input" id="account-name-input" type="text" placeholder="Display name"/>
+      <input class="field-input" id="account-email-input" type="email" placeholder="Email"/>
+      <input class="field-input" id="account-password-input" type="password" placeholder="Password"/>
+      <div style="display:flex;gap:8px;">
+        <button id="account-create-btn" onclick="createAccount()">Create Account</button>
+        <button id="account-signout-btn" onclick="loginAccount()">Sign In</button>
+      </div>
+    </div>
+    <div id="account-details">
+      <div>
+        <div class="account-name" id="account-modal-name">TrueRoute user</div>
+        <div class="field-hint">Joined <span id="account-joined">-</span></div>
+      </div>
+      <div class="account-detail-grid">
+        <div class="account-detail-stat"><div class="account-mini-val" id="acct-routes">0</div><div class="account-mini-lbl">Routes generated</div></div>
+        <div class="account-detail-stat"><div class="account-mini-val" id="acct-generated">0 m</div><div class="account-mini-lbl">Routes planned</div></div>
+        <div class="account-detail-stat"><div class="account-mini-val" id="acct-navigated">0 m</div><div class="account-mini-lbl">Travelled in nav</div></div>
+        <div class="account-detail-stat"><div class="account-mini-val" id="acct-sessions">0</div><div class="account-mini-lbl">Nav sessions</div></div>
+        <div class="account-detail-stat"><div class="account-mini-val" id="acct-longest">0 m</div><div class="account-mini-lbl">Longest route</div></div>
+        <div class="account-detail-stat"><div class="account-mini-val" id="acct-mode">CAR</div><div class="account-mini-lbl">Favorite mode</div></div>
+        <div class="account-detail-stat"><div class="account-mini-val" id="acct-nodes">0</div><div class="account-mini-lbl">Nodes explored</div></div>
+        <div class="account-detail-stat"><div class="account-mini-val" id="acct-segments">0</div><div class="account-mini-lbl">Road segments</div></div>
+        <div class="account-detail-stat"><div class="account-mini-val" id="acct-compute">0s</div><div class="account-mini-lbl">Compute time</div></div>
+        <div class="account-detail-stat"><div class="account-mini-val" id="acct-last">Never</div><div class="account-mini-lbl">Last route</div></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button id="account-reset-btn" onclick="resetAccountStats()">Reset Stats</button>
+        <button id="account-signout-btn" onclick="signOutAccount()">Sign Out</button>
+      </div>
+      <div class="field-hint">On Vercel, connect this same stats shape to a database and auth provider so it follows the user between devices.</div>
+    </div>
   </div>
 </div>
 </body>
