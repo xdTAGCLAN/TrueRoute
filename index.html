@@ -196,7 +196,7 @@
   .account-mini-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; color: var(--accent3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .account-mini-lbl { font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
   .account-actions { display: flex; gap: 6px; }
-  .account-actions button, #account-create-btn, #account-reset-btn, #account-signout-btn {
+  .account-actions button, #account-create-btn, #account-reset-btn, #account-signout-btn, #account-login-btn, #account-delete-btn {
     background: transparent; border: 1px solid var(--border); color: var(--muted);
     font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 1px;
     text-transform: uppercase; padding: 8px; border-radius: 4px; cursor: pointer;
@@ -204,7 +204,7 @@
   }
   .account-actions button:hover, #account-create-btn:hover { border-color: var(--accent3); color: var(--accent3); }
   #account-create-btn { background: var(--accent); border-color: var(--accent); color: #000; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; }
-  #account-reset-btn:hover, #account-signout-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  #account-reset-btn:hover, #account-signout-btn:hover, #account-delete-btn:hover { border-color: var(--accent2); color: var(--accent2); }
   #account-modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.7);
     z-index: 2000; display: none; align-items: center; justify-content: center;
@@ -225,6 +225,14 @@
   #account-details.visible { display: flex; }
   .account-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .account-detail-stat { border: 1px solid var(--border); border-radius: 4px; padding: 10px; background: var(--bg); }
+  #account-message {
+    display: none; border-radius: 4px; padding: 10px 12px;
+    font-size: 10px; line-height: 1.5; border: 1px solid var(--border);
+  }
+  #account-message.visible { display: block; }
+  #account-message.error { color: var(--accent2); border-color: var(--accent2); background: rgba(255,51,102,0.08); }
+  #account-message.success { color: var(--accent); border-color: var(--accent); background: rgba(0,255,136,0.08); }
+  #account-delete-btn { color: var(--accent2); border-color: rgba(255,51,102,0.45); }
 
   /* ── Map rotation during navigation ─────────────── */
   body.nav-rotating #map {
@@ -1081,8 +1089,16 @@ function updateAccountUI() {
   });
 }
 
+function setAccountMessage(message, type='error') {
+  const el = document.getElementById('account-message');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = message ? `visible ${type}` : '';
+}
+
 function openAccountModal(focusCreate=false) {
   updateAccountUI();
+  setAccountMessage('');
   document.getElementById('account-modal-overlay').classList.add('visible');
   if (focusCreate && !account) setTimeout(() => document.getElementById('account-name-input')?.focus(), 0);
 }
@@ -1099,15 +1115,16 @@ async function createAccount() {
   const email = (emailInput?.value || '').trim();
   const password = passwordInput?.value || '';
   if (!name) {
-    showError('Please enter a display name for your account.');
+    setAccountMessage('Please enter a display name for your account.');
     nameInput?.focus();
     return;
   }
   if (!email || password.length < 8) {
-    showError('Enter an email and a password of at least 8 characters.');
+    setAccountMessage('Enter an email and a password of at least 8 characters.');
     return;
   }
   try {
+    setAccountMessage('Creating account...', 'success');
     const data = await accountApi('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({ name, email, password })
@@ -1115,8 +1132,9 @@ async function createAccount() {
     account = normalizeAccount(data.user);
     saveAccount();
     showError('');
+    setAccountMessage('Account created. Your TrueRoute stats will now sync on this device.', 'success');
   } catch(e) {
-    showError(e.message || 'Could not create account.');
+    setAccountMessage(e.message || 'Could not create account.');
   }
 }
 
@@ -1124,10 +1142,11 @@ async function loginAccount() {
   const email = (document.getElementById('account-email-input')?.value || '').trim();
   const password = document.getElementById('account-password-input')?.value || '';
   if (!email || !password) {
-    showError('Enter your email and password.');
+    setAccountMessage('Enter your email and password.');
     return;
   }
   try {
+    setAccountMessage('Signing in...', 'success');
     const data = await accountApi('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password })
@@ -1135,8 +1154,9 @@ async function loginAccount() {
     account = normalizeAccount(data.user);
     saveAccount();
     showError('');
+    setAccountMessage('Signed in. Your saved stats are loaded.', 'success');
   } catch(e) {
-    showError(e.message || 'Could not sign in.');
+    setAccountMessage(e.message || 'Could not sign in.');
   }
 }
 
@@ -1146,6 +1166,7 @@ async function signOutAccount() {
   accountServerAvailable = false;
   try { localStorage.removeItem(ACCOUNT_STORAGE_KEY); } catch(e) {}
   updateAccountUI();
+  setAccountMessage('Signed out on this device.', 'success');
 }
 
 async function resetAccountStats() {
@@ -1158,7 +1179,27 @@ async function resetAccountStats() {
   } catch(e) {
     account.stats = emptyAccountStats();
     saveAccount();
-    showError('Stats reset locally, but the server could not be reached.');
+    setAccountMessage('Stats reset locally, but the server could not be reached.');
+  }
+}
+
+async function deleteAccount() {
+  if (!account) return;
+  const typed = prompt('Type DELETE to permanently delete your TrueRoute account and stats.');
+  if (typed !== 'DELETE') {
+    setAccountMessage('Account deletion cancelled.', 'success');
+    return;
+  }
+  try {
+    setAccountMessage('Deleting account...', 'success');
+    await accountApi('/api/auth/delete', { method: 'POST', body: '{}' });
+    account = null;
+    accountServerAvailable = false;
+    try { localStorage.removeItem(ACCOUNT_STORAGE_KEY); } catch(e) {}
+    updateAccountUI();
+    setAccountMessage('Account deleted. Your browser is now signed out.', 'success');
+  } catch(e) {
+    setAccountMessage(e.message || 'Could not delete account.');
   }
 }
 
@@ -3796,6 +3837,7 @@ initAccount();
       <span id="account-modal-title">Account</span>
       <button id="account-modal-close" onclick="closeAccountModal()">x</button>
     </div>
+    <div id="account-message"></div>
     <div id="account-form" style="display:flex;flex-direction:column;gap:10px;">
       <div class="field-hint">Create or sign into your TrueRoute account. On Vercel, stats sync through the API routes.</div>
       <input class="field-input" id="account-name-input" type="text" placeholder="Display name"/>
@@ -3803,7 +3845,7 @@ initAccount();
       <input class="field-input" id="account-password-input" type="password" placeholder="Password"/>
       <div style="display:flex;gap:8px;">
         <button id="account-create-btn" onclick="createAccount()">Create Account</button>
-        <button id="account-signout-btn" onclick="loginAccount()">Sign In</button>
+        <button id="account-login-btn" onclick="loginAccount()">Sign In</button>
       </div>
     </div>
     <div id="account-details">
@@ -3827,6 +3869,7 @@ initAccount();
         <button id="account-reset-btn" onclick="resetAccountStats()">Reset Stats</button>
         <button id="account-signout-btn" onclick="signOutAccount()">Sign Out</button>
       </div>
+      <button id="account-delete-btn" onclick="deleteAccount()">Delete Account</button>
       <div class="field-hint">On Vercel, connect this same stats shape to a database and auth provider so it follows the user between devices.</div>
     </div>
   </div>
