@@ -3182,36 +3182,57 @@ function lerpBearing(a, b, t) {
   return a + diff * t;
 }
 
-// Apply CSS rotation to Leaflet's tile + vector panes,
-// and counter-rotate the marker/overlay panes so icons stay upright.
+function getTransformWithoutNavRotation(el) {
+  const inline = el.style.transform || '';
+  if (inline.includes('var(--nav-pane-rotation)')) {
+    return inline.replace(/\s*var\(--nav-pane-rotation\)\s*/g, '').trim();
+  }
+  if (inline.includes('var(--nav-marker-rotation)')) {
+    return inline.replace(/\s*var\(--nav-marker-rotation\)\s*/g, '').trim();
+  }
+  return inline;
+}
+
+function setPaneRotation(el, rotationVar, origin) {
+  const baseTransform = getTransformWithoutNavRotation(el);
+  el.dataset.navBaseTransform = baseTransform;
+  el.style.transform = baseTransform ? `${baseTransform} var(${rotationVar})` : `var(${rotationVar})`;
+  el.style.transformOrigin = origin;
+  el.style.willChange = 'transform';
+}
+
+function clearPaneRotation(el) {
+  el.style.transform = el.dataset.navBaseTransform || '';
+  el.style.transformOrigin = '';
+  el.style.willChange = '';
+  delete el.dataset.navBaseTransform;
+}
+
+// Apply CSS rotation to Leaflet's panes without overwriting Leaflet's own
+// translate transforms, which are what keep the map tiles positioned.
 function applyMapRotation(bearing) {
   const mapEl = document.getElementById('map');
-  const mapWrap = document.getElementById('map-wrap');
-  const cx = mapEl.offsetWidth / 2;
-  const cy = mapEl.offsetHeight / 2;
-  const rot = `rotate(${bearing}deg)`;
+  if (!mapEl || mapEl.offsetWidth === 0 || mapEl.offsetHeight === 0) return;
+
+  const origin = `${mapEl.offsetWidth / 2}px ${mapEl.offsetHeight / 2}px`;
+  mapEl.style.setProperty('--nav-pane-rotation', `rotate(${bearing}deg)`);
+  mapEl.style.setProperty('--nav-marker-rotation', `rotate(${-bearing}deg)`);
 
   // Rotate tile pane, overlay SVG layer, and shadow pane
   const toRotate = mapEl.querySelectorAll(
     '.leaflet-tile-pane, .leaflet-overlay-pane, .leaflet-shadow-pane'
   );
-  toRotate.forEach(el => {
-    el.style.transformOrigin = `${cx}px ${cy}px`;
-    el.style.transform = rot;
-  });
+  toRotate.forEach(el => setPaneRotation(el, '--nav-pane-rotation', origin));
 
   // Counter-rotate marker pane so markers stay upright
   const markerPane = mapEl.querySelector('.leaflet-marker-pane');
-  if (markerPane) {
-    markerPane.style.transformOrigin = `${cx}px ${cy}px`;
-    markerPane.style.transform = `rotate(${-bearing}deg)`;
-  }
+  if (markerPane) setPaneRotation(markerPane, '--nav-marker-rotation', origin);
 
-  // Counter-rotate the viz canvas
+  // Rotate the viz canvas with the map; its content is world-space.
   const vizCanvas = document.getElementById('viz-canvas');
   if (vizCanvas) {
-    vizCanvas.style.transformOrigin = `${cx}px ${cy}px`;
-    vizCanvas.style.transform = rot; // canvas content is already world-space, rotate with map
+    vizCanvas.style.transformOrigin = '50% 50%';
+    vizCanvas.style.transform = `rotate(${bearing}deg)`;
   }
 
   // Update the compass widget: needle points to north = rotate by -bearing so it stays north-up
@@ -3225,10 +3246,13 @@ function applyMapRotation(bearing) {
 
 function resetMapRotation() {
   const mapEl = document.getElementById('map');
+  if (!mapEl) return;
   const panes = mapEl.querySelectorAll(
     '.leaflet-tile-pane, .leaflet-overlay-pane, .leaflet-shadow-pane, .leaflet-marker-pane'
   );
-  panes.forEach(el => { el.style.transform = ''; el.style.transformOrigin = ''; });
+  panes.forEach(clearPaneRotation);
+  mapEl.style.removeProperty('--nav-pane-rotation');
+  mapEl.style.removeProperty('--nav-marker-rotation');
   const vizCanvas = document.getElementById('viz-canvas');
   if (vizCanvas) { vizCanvas.style.transform = ''; vizCanvas.style.transformOrigin = ''; }
   currentDisplayBearing = 0;
