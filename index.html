@@ -3507,7 +3507,7 @@ function startNavigation() {
   const navBtn=document.getElementById('nav-btn');
   navBtn.textContent='🛑 Stop Navigation'; navBtn.classList.add('stop');
   hud.classList.add('visible');
-  setTimeout(()=>{ map.invalidateSize(); if(gpsPosition){const tll=getOffsetCenter(gpsPosition.lat,gpsPosition.lng);map.setView(tll,17);} },300);
+  setTimeout(()=>{ map.invalidateSize(); if(gpsPosition){const tll=getOffsetCenter(gpsPosition.lat,gpsPosition.lng);const zoom=getNavZoom(distToNextTurn(gpsPosition.lat,gpsPosition.lng));map.setView(tll,zoom);} },300);
   requestWakeLock();
   updateNavHUD();
   // Detect manual pan — unlock map following
@@ -3537,18 +3537,45 @@ function stopNavigation() {
   document.getElementById('reroute-prompt').style.display='none';
   reroutePromptShown=false;
 }
+// Dynamic zoom based on distance to next turn:
+// very close → zoom in tight, far away → zoom out for context
+function getNavZoom(distToTurnM) {
+  if (distToTurnM <   40) return 19;
+  if (distToTurnM <   80) return 18;
+  if (distToTurnM <  150) return 17;
+  if (distToTurnM <  300) return 17;
+  if (distToTurnM <  600) return 16;
+  if (distToTurnM < 1200) return 15;
+  if (distToTurnM < 2500) return 14;
+  if (distToTurnM < 5000) return 13;
+  return 12;
+}
+
+// Compute distance to next meaningful turn from current position
+function distToNextTurn(lat, lng) {
+  if (!navTurns || navTurns.length === 0) return Infinity;
+  const next = navTurns.find(t => t.routeIdx > navStepIndex && t.arrow !== '🏁');
+  if (!next) {
+    // Only destination left
+    const dest = navRoute[navRoute.length - 1];
+    return haversineCoords(lat, lng, dest[0], dest[1]);
+  }
+  return haversineCoords(lat, lng, next.lat, next.lng);
+}
+
 function onNavMapDrag() {
   if (!navActive) return;
   navMapLocked = false;
-  const btn = document.getElementById('nav-recenter-btn');
-  btn.style.display = 'flex';
+  document.getElementById('nav-recenter-btn').style.display = 'flex';
 }
 function navRecenter() {
   navMapLocked = true;
   document.getElementById('nav-recenter-btn').style.display = 'none';
   if (gpsPosition) {
-    const tll = getOffsetCenter(gpsPosition.lat, gpsPosition.lng);
-    map.setView(tll, map.getZoom(), {animate:true, duration:0.4});
+    const {lat, lng} = gpsPosition;
+    const tll = getOffsetCenter(lat, lng);
+    const zoom = getNavZoom(distToNextTurn(lat, lng));
+    map.setView(tll, zoom, {animate:true, duration:0.4});
   }
 }
 function updateNavigation() {
@@ -3569,7 +3596,8 @@ function updateNavigation() {
     updateNavHUD();
     if(navMapLocked) {
       const targetLL=getOffsetCenter(lat,lng);
-      map.setView(targetLL,map.getZoom(),{animate:true,duration:0.5});
+      const zoom = getNavZoom(distToNextTurn(lat, lng));
+      map.setView(targetLL, zoom, {animate:true, duration:0.5});
     }
   }
 }
