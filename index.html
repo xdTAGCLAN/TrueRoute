@@ -733,7 +733,9 @@
     <!-- Status / stats -->
     <div id="status-box">
       <div id="status-text">Initializing…</div>
+      <div id="status-subtitle" style="font-size:9px;color:var(--muted);line-height:1.6;display:none;"></div>
       <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <div id="status-elapsed" style="font-size:9px;color:var(--muted);display:none;">⏱ Elapsed: <span id="status-elapsed-val">0s</span></div>
     </div>
 
     <div class="error-box" id="error-box"></div>
@@ -1438,12 +1440,7 @@ function initMap() {
   updateCanvasSize();
   window.addEventListener('resize', () => setTimeout(updateCanvasSize, 100));
   map.on('move zoomend viewreset resize', () => { setTimeout(updateCanvasSize, 50); scheduleRedraw(); });
-  // Reapply nav rotation after any Leaflet map move (pane transforms get reset)
-  map.on('moveend zoomend', () => {
-    if (navActive && isMobile() && currentDisplayBearing !== 0) {
-      applyMapRotation(currentDisplayBearing);
-    }
-  });
+  // (map rotation during navigation removed)
   window.addEventListener('scroll', updateCanvasSize);
 
   const slider = document.getElementById('viz-speed');
@@ -2166,13 +2163,15 @@ async function fetchRoadGraph(bbox, mode='car', signal) {
   const ferryFilter = avoidSet.has('ferries') ? '' : `way["route"="ferry"](${bbox});relation["route"="ferry"](${bbox});`;
   const q = `[out:json][timeout:90][maxsize:134217728];(${wayFilter};${ferryFilter});out body;>;out skel qt;`;
   const mirrors = [
-    'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass-api.de/api/interpreter',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   ];
+  const queryStartTime = Date.now();
   async function tryFetch(base, attempt) {
     const hostname = new URL(base).hostname;
-    setStatus(`🌍 Querying ${hostname}… (attempt ${attempt})`, 8);
+    const shortHost = hostname.replace('overpass.','').replace('/api/interpreter','').replace('.de','').replace('.systems','').replace('maps.mail.ru','mail.ru');
+    setStatus(`🌍 Querying ${hostname}…`, 8, `Downloading road data for this area — this can take up to a minute. Hang tight!`);
     updateCacheIndicator('fetching');
     const res = await fetch(base, { method:'POST', mode:'cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(q), signal });
     if (!res.ok) throw new Error(`HTTP ${res.status} from ${hostname}`);
@@ -2504,8 +2503,8 @@ async function fetchPredownloadAreaRaw(bbox, mode, signal, onStatus) {
   const q = `[out:json][timeout:120][maxsize:268435456];(way[${highwayFilter}]["access"!="private"](${bbox});${ferryFilter});out body;>;out skel qt;`;
 
   const mirrors = [
-    'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass-api.de/api/interpreter',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   ];
 
@@ -2769,7 +2768,7 @@ async function findRoute() {
     const straightLineKm = haversineCoords(pointA.lat,pointA.lng,pointB.lat,pointB.lng)/1000;
     if (straightLineKm>25) showError(`⚠️ Route is ~${straightLineKm.toFixed(0)} km — Overpass may time out. Consider shorter routes.`);
 
-    setStatus('🌍 Fetching road graph from OpenStreetMap…', 5);
+    setStatus('🌍 Fetching road graph from OpenStreetMap…', 5, 'Downloading road data — this can take up to a minute for large areas. Please wait…');
     let osmData;
     try { osmData = await fetchRoadGraph(buildBBoxAll(), transportMode, signal); }
     catch(e) {
@@ -3330,12 +3329,33 @@ function closeElevation() {
 // ═══════════════════════════════════════════════════════════════════════════
 // UI HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
-function setStatus(text,pct) {
+let _statusElapsedTimer = null;
+let _statusElapsedStart = null;
+function setStatus(text, pct, subtitle) {
   document.getElementById('status-box').classList.add('visible');
-  document.getElementById('status-text').textContent=text;
-  document.getElementById('progress-fill').style.width=pct+'%';
+  document.getElementById('status-text').textContent = text;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  const subEl = document.getElementById('status-subtitle');
+  if (subtitle) { subEl.textContent = subtitle; subEl.style.display = 'block'; }
+  else { subEl.style.display = 'none'; }
+  // Start elapsed timer on first call, keep running on subsequent calls
+  const elapsedRow = document.getElementById('status-elapsed');
+  if (!_statusElapsedTimer) {
+    _statusElapsedStart = Date.now();
+    elapsedRow.style.display = 'block';
+    document.getElementById('status-elapsed-val').textContent = '0s';
+    _statusElapsedTimer = setInterval(() => {
+      const secs = Math.round((Date.now() - _statusElapsedStart) / 1000);
+      document.getElementById('status-elapsed-val').textContent = secs + 's';
+    }, 1000);
+  }
 }
-function hideStatus() { document.getElementById('status-box').classList.remove('visible'); }
+function hideStatus() {
+  document.getElementById('status-box').classList.remove('visible');
+  document.getElementById('status-subtitle').style.display = 'none';
+  document.getElementById('status-elapsed').style.display = 'none';
+  if (_statusElapsedTimer) { clearInterval(_statusElapsedTimer); _statusElapsedTimer = null; _statusElapsedStart = null; }
+}
 function showError(msg) { const el=document.getElementById('error-box'); el.textContent=msg; el.classList.toggle('visible',!!msg); }
 function showStats(s) {
   document.getElementById('stats-box').classList.add('visible');
@@ -3385,10 +3405,7 @@ let navActive=false, navRoute=null, navStepIndex=0, navTurns=[], navWakeLock=nul
 let rerouteTimeout=null, lastRerouteTime=0, navTotalDistM=0;
 let autoRerouteEnabled=true; // default on
 let reroutePromptShown=false;
-let navBearing=0;          // current map rotation bearing (degrees, 0=north)
 let prevGpsPos=null;       // previous GPS fix for bearing fallback
-let navRotationRAF=null;   // rAF handle for smooth bearing interpolation
-let currentDisplayBearing=0; // smoothly interpolated bearing shown on screen
 
 function toggleAutoReroute() {
   autoRerouteEnabled = !autoRerouteEnabled;
@@ -3479,11 +3496,9 @@ function startNavigation() {
 function stopNavigation() {
   navActive=false; navRoute=null; navTurns=[]; navStepIndex=0; navTotalDistM=0;
   document.body.classList.remove('nav-active');
-  if(navRotationRAF){cancelAnimationFrame(navRotationRAF);navRotationRAF=null;}
   prevGpsPos=null;
   flushNavigationDistance();
   navSessionLastPos=null; navSessionDistanceM=0; navSessionStartedAt=null;
-  resetMapRotation();
   const hud=document.getElementById('nav-hud');
   hud.classList.remove('visible');
   document.getElementById('nav-speed-sign').classList.remove('visible');
@@ -3515,7 +3530,6 @@ function updateNavigation() {
   else {
     if(closestIdx>navStepIndex) navStepIndex=closestIdx;
     updateNavHUD();
-    updateNavBearing(lat, lng);
     const targetLL=getOffsetCenter(lat,lng);
     map.setView(targetLL,map.getZoom(),{animate:true,duration:0.5});
   }
@@ -3625,145 +3639,6 @@ function generateTurns(route) {
 }
 function getBearing(lat1,lng1,lat2,lng2){const dLng=(lng2-lng1)*Math.PI/180;const lat1R=lat1*Math.PI/180;const lat2R=lat2*Math.PI/180;const y=Math.sin(dLng)*Math.cos(lat2R);const x=Math.cos(lat1R)*Math.sin(lat2R)-Math.sin(lat1R)*Math.cos(lat2R)*Math.cos(dLng);return(Math.atan2(y,x)*180/Math.PI+360)%360;}
 function bearingDiff(b1,b2){let diff=b2-b1;while(diff>180)diff-=360;while(diff<-180)diff+=360;return diff;}
-
-// ── Map bearing rotation ──────────────────────────
-function isMobile() {
-  return window.matchMedia('(max-width:700px)').matches;
-}
-
-// Smoothly interpolate bearing (shortest arc)
-function lerpBearing(a, b, t) {
-  let diff = b - a;
-  while (diff > 180) diff -= 360;
-  while (diff < -180) diff += 360;
-  return a + diff * t;
-}
-
-function getTransformWithoutNavRotation(el) {
-  const inline = el.style.transform || '';
-  if (inline.includes('var(--nav-pane-rotation)')) {
-    return inline.replace(/\s*var\(--nav-pane-rotation\)\s*/g, '').trim();
-  }
-  if (inline.includes('var(--nav-marker-rotation)')) {
-    return inline.replace(/\s*var\(--nav-marker-rotation\)\s*/g, '').trim();
-  }
-  return inline;
-}
-
-function setPaneRotation(el, rotationVar, origin) {
-  const baseTransform = getTransformWithoutNavRotation(el);
-  el.dataset.navBaseTransform = baseTransform;
-  el.style.transform = baseTransform ? `${baseTransform} var(${rotationVar})` : `var(${rotationVar})`;
-  el.style.transformOrigin = origin;
-  el.style.willChange = 'transform';
-}
-
-function clearPaneRotation(el) {
-  el.style.transform = el.dataset.navBaseTransform || '';
-  el.style.transformOrigin = '';
-  el.style.willChange = '';
-  delete el.dataset.navBaseTransform;
-}
-
-// Apply CSS rotation to Leaflet's panes without overwriting Leaflet's own
-// translate transforms, which are what keep the map tiles positioned.
-function applyMapRotation(bearing) {
-  const mapEl = document.getElementById('map');
-  if (!mapEl || mapEl.offsetWidth === 0 || mapEl.offsetHeight === 0) return;
-
-  const origin = `${mapEl.offsetWidth / 2}px ${mapEl.offsetHeight / 2}px`;
-  mapEl.style.setProperty('--nav-pane-rotation', `rotate(${bearing}deg)`);
-  mapEl.style.setProperty('--nav-marker-rotation', `rotate(${-bearing}deg)`);
-
-  // Rotate tile pane, overlay SVG layer, and shadow pane
-  const toRotate = mapEl.querySelectorAll(
-    '.leaflet-tile-pane, .leaflet-overlay-pane, .leaflet-shadow-pane'
-  );
-  toRotate.forEach(el => setPaneRotation(el, '--nav-pane-rotation', origin));
-
-  // Counter-rotate marker pane so markers stay upright
-  const markerPane = mapEl.querySelector('.leaflet-marker-pane');
-  if (markerPane) setPaneRotation(markerPane, '--nav-marker-rotation', origin);
-
-  // Rotate the viz canvas with the map; its content is world-space.
-  const vizCanvas = document.getElementById('viz-canvas');
-  if (vizCanvas) {
-    vizCanvas.style.transformOrigin = '50% 50%';
-    vizCanvas.style.transform = `rotate(${bearing}deg)`;
-  }
-
-  // Update the compass widget: needle points to north = rotate by -bearing so it stays north-up
-  // (the compass widget is not inside a Leaflet pane so it doesn't rotate with the map)
-  const needle = document.getElementById('compass-needle');
-  if (needle) {
-    needle.style.transform = `rotate(${-bearing}deg)`;
-    document.getElementById('compass-wrap').classList.add('visible');
-  }
-}
-
-function resetMapRotation() {
-  const mapEl = document.getElementById('map');
-  if (!mapEl) return;
-  const panes = mapEl.querySelectorAll(
-    '.leaflet-tile-pane, .leaflet-overlay-pane, .leaflet-shadow-pane, .leaflet-marker-pane'
-  );
-  panes.forEach(clearPaneRotation);
-  mapEl.style.removeProperty('--nav-pane-rotation');
-  mapEl.style.removeProperty('--nav-marker-rotation');
-  const vizCanvas = document.getElementById('viz-canvas');
-  if (vizCanvas) { vizCanvas.style.transform = ''; vizCanvas.style.transformOrigin = ''; }
-  currentDisplayBearing = 0;
-  navBearing = 0;
-}
-
-// Called every GPS update — works out the best bearing and schedules smooth rotation
-function updateNavBearing(lat, lng) {
-  if (!isMobile()) return; // rotation only on mobile
-
-  let bearing = null;
-
-  // Prefer device heading (from magnetometer via geolocation API)
-  if (gpsPosition && gpsPosition.heading != null && gpsPosition.heading >= 0) {
-    bearing = gpsPosition.heading;
-  }
-
-  // Fallback: compute bearing from movement along route
-  if (bearing == null && navRoute && navStepIndex < navRoute.length - 1) {
-    // Look a few points ahead for a stable direction
-    const ahead = Math.min(navStepIndex + 3, navRoute.length - 1);
-    bearing = getBearing(lat, lng, navRoute[ahead][0], navRoute[ahead][1]);
-  }
-
-  // Fallback: bearing from previous GPS position
-  if (bearing == null && prevGpsPos) {
-    const d = haversineCoords(prevGpsPos.lat, prevGpsPos.lng, lat, lng);
-    if (d > 2) { // only update if moved >2m to avoid jitter while stationary
-      bearing = getBearing(prevGpsPos.lat, prevGpsPos.lng, lat, lng);
-    }
-  }
-
-  if (bearing == null) return;
-
-  navBearing = bearing;
-  prevGpsPos = { lat, lng };
-
-  // Animate smoothly to target bearing
-  if (navRotationRAF) cancelAnimationFrame(navRotationRAF);
-  (function animateRotation() {
-    if (!navActive) return;
-    currentDisplayBearing = lerpBearing(currentDisplayBearing, navBearing, 0.12);
-    applyMapRotation(currentDisplayBearing);
-    // Keep animating until close enough
-    const diff = Math.abs(lerpBearing(currentDisplayBearing, navBearing, 1) - currentDisplayBearing);
-    if (diff > 0.3) {
-      navRotationRAF = requestAnimationFrame(animateRotation);
-    } else {
-      currentDisplayBearing = navBearing;
-      applyMapRotation(currentDisplayBearing);
-      navRotationRAF = null;
-    }
-  })();
-}
 
 // ── Nav HUD ───────────────────────────────────────
 function updateNavHUD(){
