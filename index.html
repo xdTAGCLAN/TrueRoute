@@ -2171,7 +2171,7 @@ async function fetchRoadGraph(bbox, mode='car', signal) {
   async function tryFetch(base, attempt) {
     const hostname = new URL(base).hostname;
     const shortHost = hostname.replace('overpass.','').replace('/api/interpreter','').replace('.de','').replace('.systems','').replace('maps.mail.ru','mail.ru');
-    setStatus(`🌍 Querying ${hostname}…`, 8, `Downloading road data for this area — this can take up to a minute. Hang tight!`);
+    setStatus(`🌍 Querying ${hostname}…`, 8, `Downloading road data for this area — this can take up to 2 minutes. Hang tight!`);
     updateCacheIndicator('fetching');
     const res = await fetch(base, { method:'POST', mode:'cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(q), signal });
     if (!res.ok) throw new Error(`HTTP ${res.status} from ${hostname}`);
