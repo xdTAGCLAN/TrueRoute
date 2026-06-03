@@ -133,19 +133,22 @@
 
   input[type=range] { accent-color: var(--accent3); }
 
-  /* ── Speed sign (nav overlay) ───────────────────── */
+  /* ── Recenter button (nav free-pan) ─────────────── */
+  #nav-recenter-btn:hover { background: rgba(68,136,255,0.15) !important; }
+  body.nav-active #nav-recenter-btn { bottom: calc(var(--hud-h, 130px) + 12px); }
+
+  /* ── Speed sign (nav overlay) — lives below compass ── */
   #nav-speed-sign {
-    position: absolute; top: 160px; right: 12px; z-index: 600;
     display: none; flex-direction: column; align-items: center; justify-content: center;
-    width: 62px; height: 62px;
-    background: #fff; border: 5px solid #cc0000;
+    width: 54px; height: 54px;
+    background: #fff; border: 4px solid #cc0000;
     border-radius: 50%; box-shadow: 0 2px 12px rgba(0,0,0,0.5);
-    pointer-events: none;
+    pointer-events: none; margin-top: 4px;
   }
   #nav-speed-sign.visible { display: flex; }
   #nav-speed-sign-val {
     font-family: 'Syne', sans-serif; font-weight: 800;
-    font-size: 20px; color: #111; line-height: 1;
+    font-size: 18px; color: #111; line-height: 1;
     margin-top: 2px;
   }
   #nav-speed-sign-unit {
@@ -375,9 +378,9 @@
   /* ── NEW: Compass bearing widget ────────────────── */
   #compass-wrap {
     position: absolute; top: 60px; right: 12px; z-index: 500;
-    width: 54px; height: 54px; display: none;
+    display: none; flex-direction: column; align-items: center;
   }
-  #compass-wrap.visible { display: block; }
+  #compass-wrap.visible { display: flex; }
   #compass-svg { width: 54px; height: 54px; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6)); }
 
   /* ── NEW: Map layer controls ─────────────────────── */
@@ -820,7 +823,7 @@
     <button class="map-ctrl-btn" id="theme-btn"               onclick="toggleMapTheme()">☀ Light</button>
   </div>
 
-  <!-- Compass bearing -->
+  <!-- Compass bearing + speed sign stacked -->
   <div id="compass-wrap">
     <svg id="compass-svg" viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg">
       <circle cx="27" cy="27" r="25" fill="rgba(10,10,15,0.9)" stroke="#1e1e2e" stroke-width="1.5"/>
@@ -831,9 +834,23 @@
       <text x="27" y="18" text-anchor="middle" font-size="7" fill="#e0e0f0" font-family="Space Mono">N</text>
       <circle cx="27" cy="27" r="3" fill="#e0e0f0"/>
     </svg>
+    <!-- Speed sign sits directly below compass -->
+    <div id="nav-speed-sign">
+      <div id="nav-speed-sign-val">—</div>
+      <div id="nav-speed-sign-unit">km/h</div>
+    </div>
   </div>
 
-  <!-- Elevation profile overlay -->
+  <!-- Recenter button — shown when user pans map during navigation -->
+  <div id="nav-recenter-btn" onclick="navRecenter()" style="
+    position:absolute; bottom:20px; right:12px; z-index:600;
+    display:none; align-items:center; gap:6px;
+    background:rgba(10,10,15,0.95); border:1px solid var(--accent3); color:var(--accent3);
+    font-family:'Space Mono',monospace; font-size:10px; letter-spacing:1px;
+    padding:8px 14px; border-radius:20px; cursor:pointer;
+    backdrop-filter:blur(8px); box-shadow:0 2px 12px rgba(0,0,0,0.5);
+    transition:all 0.2s;
+  ">📍 Recenter</div>
   <div id="elev-panel">
     <div id="elev-header">
       <span id="elev-title">Elevation Profile</span>
@@ -862,12 +879,6 @@
 
   <!-- Share toast -->
   <div id="share-toast"></div>
-
-  <!-- Nav speed sign -->
-  <div id="nav-speed-sign">
-    <div id="nav-speed-sign-val">—</div>
-    <div id="nav-speed-sign-unit">km/h</div>
-  </div>
 
   <!-- Navigation HUD -->
   <div id="nav-hud">
@@ -2171,7 +2182,7 @@ async function fetchRoadGraph(bbox, mode='car', signal) {
   async function tryFetch(base, attempt) {
     const hostname = new URL(base).hostname;
     const shortHost = hostname.replace('overpass.','').replace('/api/interpreter','').replace('.de','').replace('.systems','').replace('maps.mail.ru','mail.ru');
-    setStatus(`🌍 Querying ${hostname}…`, 8, `Downloading road data for this area — this can take up to 2 minutes. Hang tight!`);
+    setStatus(`🌍 Querying ${hostname}…`, 8, `Downloading road data for this area — this can take up to a minute. Hang tight!`);
     updateCacheIndicator('fetching');
     const res = await fetch(base, { method:'POST', mode:'cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(q), signal });
     if (!res.ok) throw new Error(`HTTP ${res.status} from ${hostname}`);
@@ -3405,6 +3416,7 @@ let navActive=false, navRoute=null, navStepIndex=0, navTurns=[], navWakeLock=nul
 let rerouteTimeout=null, lastRerouteTime=0, navTotalDistM=0;
 let autoRerouteEnabled=true; // default on
 let reroutePromptShown=false;
+let navMapLocked=true; // when true, map follows GPS position; false when user pans away
 let prevGpsPos=null;       // previous GPS fix for bearing fallback
 
 function toggleAutoReroute() {
@@ -3436,6 +3448,11 @@ function startGPS() {
       map.setView([lat,lng],15);
       updateOverlay('📍 GPS origin set! Click map for destination.');
       document.getElementById('map-overlay').style.display='block';
+      document.getElementById('map-overlay').style.opacity='1';
+      setTimeout(()=>{
+        document.getElementById('map-overlay').style.opacity='0';
+        setTimeout(()=>{ document.getElementById('map-overlay').style.display='none'; },500);
+      },2500);
       clickStage='B';
       // Fill origin input with coordinates
       document.getElementById('origin-input').value=`${lat.toFixed(6)}, ${lng.toFixed(6)}`;
@@ -3482,6 +3499,7 @@ function startNavigation() {
   navTotalDistM=0;
   for(let i=0;i<navRoute.length-1;i++) navTotalDistM+=haversineCoords(navRoute[i][0],navRoute[i][1],navRoute[i+1][0],navRoute[i+1][1]);
   navTurns=generateTurns(navRoute); navStepIndex=0; navActive=true;
+  navMapLocked=true;
   startAccountNavigationSession(gpsPosition.lat, gpsPosition.lng);
   document.body.classList.add('nav-active');
   const hud=document.getElementById('nav-hud');
@@ -3492,10 +3510,15 @@ function startNavigation() {
   setTimeout(()=>{ map.invalidateSize(); if(gpsPosition){const tll=getOffsetCenter(gpsPosition.lat,gpsPosition.lng);map.setView(tll,17);} },300);
   requestWakeLock();
   updateNavHUD();
+  // Detect manual pan — unlock map following
+  map.on('dragstart', onNavMapDrag);
 }
 function stopNavigation() {
   navActive=false; navRoute=null; navTurns=[]; navStepIndex=0; navTotalDistM=0;
+  navMapLocked=true;
   document.body.classList.remove('nav-active');
+  map.off('dragstart', onNavMapDrag);
+  document.getElementById('nav-recenter-btn').style.display='none';
   prevGpsPos=null;
   flushNavigationDistance();
   navSessionLastPos=null; navSessionDistanceM=0; navSessionStartedAt=null;
@@ -3514,6 +3537,20 @@ function stopNavigation() {
   document.getElementById('reroute-prompt').style.display='none';
   reroutePromptShown=false;
 }
+function onNavMapDrag() {
+  if (!navActive) return;
+  navMapLocked = false;
+  const btn = document.getElementById('nav-recenter-btn');
+  btn.style.display = 'flex';
+}
+function navRecenter() {
+  navMapLocked = true;
+  document.getElementById('nav-recenter-btn').style.display = 'none';
+  if (gpsPosition) {
+    const tll = getOffsetCenter(gpsPosition.lat, gpsPosition.lng);
+    map.setView(tll, map.getZoom(), {animate:true, duration:0.4});
+  }
+}
 function updateNavigation() {
   if(!navActive||!navRoute||!gpsPosition) return;
   const {lat,lng}=gpsPosition;
@@ -3530,8 +3567,10 @@ function updateNavigation() {
   else {
     if(closestIdx>navStepIndex) navStepIndex=closestIdx;
     updateNavHUD();
-    const targetLL=getOffsetCenter(lat,lng);
-    map.setView(targetLL,map.getZoom(),{animate:true,duration:0.5});
+    if(navMapLocked) {
+      const targetLL=getOffsetCenter(lat,lng);
+      map.setView(targetLL,map.getZoom(),{animate:true,duration:0.5});
+    }
   }
 }
 function getOffsetCenter(lat,lng) {
